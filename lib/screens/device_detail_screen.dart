@@ -5,7 +5,6 @@ import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:provider/provider.dart';
 
 import '/helpers/ble_facade/ble_device_connector.dart';
-import '/helpers/ble_facade/ble_device_interactor.dart';
 import '/helpers/constants.dart';
 
 class DeviceDetailScreen extends StatefulWidget {
@@ -18,8 +17,9 @@ class DeviceDetailScreen extends StatefulWidget {
 }
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
-  late Future<QualifiedCharacteristic?> _txCharacteristic;
+  late Future<Map<String, QualifiedCharacteristic>?> _characteristics;
 
+  bool _isProcessingRequest = false;
   late Function() _connectCallback;
   late Function() _disconnectCallback;
 
@@ -32,7 +32,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     super.initState();
 
     _setCallbacks();
-    _txCharacteristic = _findTxCharacteristic();
+    _characteristics = _findCharacteristics();
 
     writeOutput = '';
     textEditingController = TextEditingController();
@@ -51,59 +51,103 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     _disconnectCallback = () => deviceConnector.disconnect(widget.device.id);
   }
 
-  Future<QualifiedCharacteristic?> _findTxCharacteristic() async {
-    final interactor = Provider.of<BleDeviceInteractor>(context, listen: false);
+  Future<Map<String, QualifiedCharacteristic>?> _findCharacteristics() async {
+    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
 
     await _connectCallback();
-    final services = await interactor.discoverServices(widget.device.id);
+    final services = await ble.discoverServices(widget.device.id);
     await _disconnectCallback();
 
     // Find the main service
-    late final DiscoveredCharacteristic characteristic;
+    late final DiscoveredCharacteristic txCharacteristic;
+    late final DiscoveredCharacteristic rxCharacteristic;
     try {
       final service = services.firstWhere(
           (e) => e.serviceId.toString() == ThermalDevice.mainServiceUuid);
-      characteristic = service.characteristics.firstWhere(
+      txCharacteristic = service.characteristics.firstWhere(
           (e) => e.characteristicId.toString() == ThermalDevice.txServiceUuid);
+      rxCharacteristic = service.characteristics.firstWhere(
+          (e) => e.characteristicId.toString() == ThermalDevice.rxServiceUuid);
     } on StateError {
       return null;
     }
 
-    return QualifiedCharacteristic(
-        characteristicId: characteristic.characteristicId,
-        serviceId: characteristic.serviceId,
-        deviceId: widget.device.id);
+    return {
+      'tx': QualifiedCharacteristic(
+          characteristicId: txCharacteristic.characteristicId,
+          serviceId: txCharacteristic.serviceId,
+          deviceId: widget.device.id),
+      'rx': QualifiedCharacteristic(
+          characteristicId: rxCharacteristic.characteristicId,
+          serviceId: rxCharacteristic.serviceId,
+          deviceId: widget.device.id),
+    };
   }
 
   List<int> _parseInput() =>
       textEditingController.text.split(',').map(int.parse).toList();
 
-  Future<void> _sendCharacteristic(QualifiedCharacteristic txCharacteristic,
-      {required bool response}) async {
-    final interactor = Provider.of<BleDeviceInteractor>(context, listen: false);
+  void _showSnackbarError(String text) {
+    final snackBar = SnackBar(
+      content: Text(text),
+      duration: const Duration(seconds: 5),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
 
-    await _connectCallback();
-    if (response) {
-      await interactor.writeCharacterisiticWithResponse(
-          txCharacteristic, _parseInput());
-    } else {
-      await interactor.writeCharacterisiticWithoutResponse(
-          txCharacteristic, _parseInput());
+  void _processRequest(Function request) async {
+    setState(() => _isProcessingRequest = true);
+    await request();
+    setState(() => _isProcessingRequest = false);
+  }
+
+  Future<void> _read(QualifiedCharacteristic rxCharacteristic) async {
+    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
+
+    late final List<int> results;
+    try {
+      await _connectCallback();
+      results = await ble.readCharacteristic(rxCharacteristic);
+      await _disconnectCallback();
+    } on Exception catch (e) {
+      results = [];
+      _showSnackbarError('Error while reading :\n$e');
     }
-    await _disconnectCallback();
 
     setState(() {
-      writeOutput = response ? 'Ok' : 'Done';
+      writeOutput =
+          results.isNotEmpty ? results[0].toString() : 'None received';
+    });
+  }
+
+  Future<void> _transmit(QualifiedCharacteristic txCharacteristic,
+      {required bool requestResponse}) async {
+    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
+
+    try {
+      await _connectCallback();
+      requestResponse
+          ? await ble.writeCharacteristicWithResponse(txCharacteristic,
+              value: _parseInput())
+          : await ble.writeCharacteristicWithoutResponse(txCharacteristic,
+              value: _parseInput());
+      await _disconnectCallback();
+    } on Exception catch (e) {
+      _showSnackbarError('Error while reading :\n$e');
+    }
+
+    setState(() {
+      writeOutput = requestResponse ? 'Ok' : 'Done';
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<QualifiedCharacteristic?>(
-        future: _txCharacteristic,
-        builder: (context, txCharacteristic) {
-          if (txCharacteristic.hasData) {
-            final charac = txCharacteristic.data!;
+    return FutureBuilder<Map<String, QualifiedCharacteristic>?>(
+        future: _characteristics,
+        builder: (context, characteristics) {
+          if (characteristics.hasData) {
+            final charac = characteristics.data!;
             return WillPopScope(
               onWillPop: () async {
                 _disconnectCallback();
@@ -113,38 +157,50 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                 appBar: AppBar(title: Text(widget.device.name)),
                 body: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Write characteristic',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: TextField(
-                        controller: textEditingController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Value',
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: false,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () =>
-                          _sendCharacteristic(charac, response: true),
-                      child: const Text('With response'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () =>
-                          _sendCharacteristic(charac, response: false),
-                      child: const Text('Without response'),
-                    ),
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(top: 8.0),
-                      child: Text('Output: $writeOutput'),
-                    ),
-                  ],
+                  children: _isProcessingRequest
+                      ? [
+                          const Center(child: CircularProgressIndicator()),
+                          const Text('Processing request'),
+                        ]
+                      : [
+                          const Text('Write characteristic',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: TextField(
+                              controller: textEditingController,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                labelText: 'Value',
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                decimal: true,
+                                signed: false,
+                              ),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _read(charac['rx']!),
+                            child: const Text('Read'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _processRequest(() => _transmit(
+                                charac['tx']!,
+                                requestResponse: true)),
+                            child: const Text('With response'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _processRequest(() => _transmit(
+                                charac['tx']!,
+                                requestResponse: false)),
+                            child: const Text('Without response'),
+                          ),
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(top: 8.0),
+                            child: Text('Output: $writeOutput'),
+                          ),
+                        ],
                 ),
               ),
             );

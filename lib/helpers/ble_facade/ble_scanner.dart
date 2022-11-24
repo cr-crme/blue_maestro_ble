@@ -5,14 +5,9 @@ import 'reactive_state.dart';
 import 'package:meta/meta.dart';
 
 class BleScanner implements ReactiveState<BleScannerState> {
-  BleScanner({
-    required FlutterReactiveBle ble,
-    required Function(String message) logMessage,
-  })  : _ble = ble,
-        _logMessage = logMessage;
+  BleScanner(this._ble);
 
   final FlutterReactiveBle _ble;
-  final void Function(String message) _logMessage;
   final StreamController<BleScannerState> _stateStreamController =
       StreamController();
 
@@ -22,7 +17,6 @@ class BleScanner implements ReactiveState<BleScannerState> {
   Stream<BleScannerState> get state => _stateStreamController.stream;
 
   void startScan(List<Uuid> serviceIds) {
-    _logMessage('Start ble discovery');
     _devices.clear();
     _subscription?.cancel();
     _subscription =
@@ -34,7 +28,7 @@ class BleScanner implements ReactiveState<BleScannerState> {
         _devices.add(device);
       }
       _pushState();
-    }, onError: (Object e) => _logMessage('Device scan fails with error: $e'));
+    });
     _pushState();
   }
 
@@ -48,8 +42,6 @@ class BleScanner implements ReactiveState<BleScannerState> {
   }
 
   Future<void> stopScan() async {
-    _logMessage('Stop ble discovery');
-
     await _subscription?.cancel();
     _subscription = null;
     _pushState();
