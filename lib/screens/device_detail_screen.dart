@@ -18,21 +18,25 @@ class DeviceDetailScreen extends StatefulWidget {
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   late Future<Map<String, QualifiedCharacteristic>?> _characteristics;
+  String subscribeOutput = '';
+  late StreamSubscription<List<int>>? _subscribeStream;
+
+  BleDeviceConnector get _connector =>
+      Provider.of<BleDeviceConnector>(context, listen: false);
 
   bool _isProcessingRequest = false;
-  late Function() _connectCallback;
-  late Function() _disconnectCallback;
+  Function() get _connectCallback => () => _connector.connect(widget.device.id);
+  Function() get _disconnectCallback =>
+      () => _connector.disconnect(widget.device.id);
 
   late String writeOutput;
   late TextEditingController textEditingController;
-  late StreamSubscription<List<int>>? subscribeStream;
 
   @override
   void initState() {
     super.initState();
 
-    _setCallbacks();
-    _characteristics = _findCharacteristics();
+    _characteristics = _initializeCharacteristics();
 
     writeOutput = '';
     textEditingController = TextEditingController();
@@ -40,18 +44,12 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   @override
   void dispose() {
-    subscribeStream?.cancel();
+    _subscribeStream?.cancel();
     super.dispose();
   }
 
-  void _setCallbacks() {
-    final deviceConnector =
-        Provider.of<BleDeviceConnector>(context, listen: false);
-    _connectCallback = () => deviceConnector.connect(widget.device.id);
-    _disconnectCallback = () => deviceConnector.disconnect(widget.device.id);
-  }
-
-  Future<Map<String, QualifiedCharacteristic>?> _findCharacteristics() async {
+  Future<Map<String, QualifiedCharacteristic>?>
+      _initializeCharacteristics() async {
     final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
 
     await _connectCallback();
@@ -97,7 +95,11 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   void _processRequest(Function request) async {
     setState(() => _isProcessingRequest = true);
+    await _connectCallback();
+
     await request();
+
+    // await _disconnectCallback();
     setState(() => _isProcessingRequest = false);
   }
 
@@ -106,9 +108,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
     late final List<int> results;
     try {
-      await _connectCallback();
       results = await ble.readCharacteristic(rxCharacteristic);
-      await _disconnectCallback();
     } on Exception catch (e) {
       results = [];
       _showSnackbarError('Error while reading :\n$e');
@@ -120,18 +120,30 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     });
   }
 
+  Future<void> _subscribeCharacteristic(
+      QualifiedCharacteristic txCharacteristic) async {
+    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
+    _subscribeStream =
+        ble.subscribeToCharacteristic(txCharacteristic).listen((event) {
+      setState(() {
+        subscribeOutput = event.toString();
+      });
+    });
+    setState(() {
+      subscribeOutput = 'Notification set';
+    });
+  }
+
   Future<void> _transmit(QualifiedCharacteristic txCharacteristic,
       {required bool requestResponse}) async {
     final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
 
     try {
-      await _connectCallback();
       requestResponse
           ? await ble.writeCharacteristicWithResponse(txCharacteristic,
               value: _parseInput())
           : await ble.writeCharacteristicWithoutResponse(txCharacteristic,
               value: _parseInput());
-      await _disconnectCallback();
     } on Exception catch (e) {
       _showSnackbarError('Error while reading :\n$e');
     }
@@ -181,7 +193,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                             ),
                           ),
                           ElevatedButton(
-                            onPressed: () => _read(charac['rx']!),
+                            onPressed: () =>
+                                _processRequest(() => _read(charac['rx']!)),
                             child: const Text('Read'),
                           ),
                           ElevatedButton(
@@ -199,6 +212,19 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                           Padding(
                             padding: const EdgeInsetsDirectional.only(top: 8.0),
                             child: Text('Output: $writeOutput'),
+                          ),
+                          const Text('Subscribe / notify',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              ElevatedButton(
+                                onPressed: () => _processRequest(() =>
+                                    _subscribeCharacteristic(charac['tx']!)),
+                                child: const Text('Subscribe'),
+                              ),
+                              Text('Output: $subscribeOutput'),
+                            ],
                           ),
                         ],
                 ),

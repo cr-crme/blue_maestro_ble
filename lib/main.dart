@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import 'helpers/ble_facade/ble_device_connector.dart';
 import 'helpers/ble_facade/ble_scanner.dart';
-import 'helpers/ble_facade/ble_status_monitor.dart';
 import 'screens/connect_device_screen.dart';
 
 const _themeColor = Colors.lightGreen;
@@ -14,14 +13,12 @@ void main() {
 
   final ble = FlutterReactiveBle();
   final scanner = BleScanner(ble);
-  final monitor = BleStatusMonitor(ble);
   final connector = BleDeviceConnector(ble);
   runApp(
     MultiProvider(
       providers: [
         Provider.value(value: ble),
         Provider.value(value: scanner),
-        Provider.value(value: monitor),
         Provider.value(value: connector),
         StreamProvider<BleScannerState?>(
           create: (_) => scanner.state,
@@ -29,10 +26,6 @@ void main() {
             discoveredDevices: [],
             scanIsInProgress: false,
           ),
-        ),
-        StreamProvider<BleStatus?>(
-          create: (_) => monitor.state,
-          initialData: BleStatus.unknown,
         ),
         StreamProvider<ConnectionStateUpdate>(
           create: (_) => connector.state,
