@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
-import '/src/ble/ble_device_connector.dart';
-import '/src/ble/ble_device_interactor.dart';
-import '/src/ble/ble_scanner.dart';
-import '/src/ble/ble_status_monitor.dart';
-import '/src/ui/ble_status_screen.dart';
-import '/src/ui/device_list.dart';
 import 'package:provider/provider.dart';
 
-import 'src/ble/ble_logger.dart';
+import 'helpers/ble_facade/ble_device_connector.dart';
+import 'helpers/ble_facade/ble_device_interactor.dart';
+import 'helpers/ble_facade/ble_scanner.dart';
+import 'helpers/ble_facade/ble_status_monitor.dart';
+import 'helpers/ble_facade/ble_logger.dart';
+import 'screens/connect_device_screen.dart';
 
 const _themeColor = Colors.lightGreen;
 
@@ -63,25 +62,11 @@ void main() {
         title: 'Flutter Reactive BLE example',
         color: _themeColor,
         theme: ThemeData(primarySwatch: _themeColor),
-        home: const HomeScreen(),
+        initialRoute: ConnectDeviceScreen.route,
+        routes: {
+          ConnectDeviceScreen.route: (context) => const ConnectDeviceScreen(),
+        },
       ),
     ),
   );
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) => Consumer<BleStatus?>(
-        builder: (_, status, __) {
-          if (status == BleStatus.ready) {
-            return const DeviceListScreen();
-          } else {
-            return BleStatusScreen(status: status ?? BleStatus.unknown);
-          }
-        },
-      );
 }
