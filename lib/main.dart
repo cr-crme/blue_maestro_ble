@@ -1,10 +1,10 @@
+import 'package:bluetooth_flutter_test/screens/device_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers/ble_facade/ble_device_connector.dart';
 import 'helpers/ble_facade/ble_scanner.dart';
-import 'screens/connect_device_screen.dart';
 
 const _themeColor = Colors.lightGreen;
 
@@ -40,9 +40,9 @@ void main() {
         title: 'Flutter Reactive BLE example',
         color: _themeColor,
         theme: ThemeData(primarySwatch: _themeColor),
-        initialRoute: ConnectDeviceScreen.route,
+        initialRoute: DeviceDetailScreen.route,
         routes: {
-          ConnectDeviceScreen.route: (context) => const ConnectDeviceScreen(),
+          DeviceDetailScreen.route: (context) => const DeviceDetailScreen(),
         },
       ),
     ),
