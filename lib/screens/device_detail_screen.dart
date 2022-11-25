@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
@@ -52,9 +53,22 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       _initializeCharacteristics() async {
     final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
 
-    await _connectCallback();
-    final services = await ble.discoverServices(widget.device.id);
-    await _disconnectCallback();
+    late final List<DiscoveredService> services;
+    try {
+      await _connectCallback();
+      services = await ble.discoverServices(widget.device.id);
+    } on Exception catch (e) {
+      _showSnackbarError('Error while getting the services :\n$e');
+      setState(() {
+        writeOutput = 'Failed to get the services, retrying in 5 seconds';
+        subscribeOutput = '';
+        return;
+      });
+      await Future.delayed(const Duration(seconds: 5));
+      return await _initializeCharacteristics();
+    } finally {
+      await _disconnectCallback();
+    }
 
     // Find the main service
     late final DiscoveredCharacteristic txCharacteristic;
@@ -62,11 +76,13 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     try {
       final service = services.firstWhere(
           (e) => e.serviceId.toString() == ThermalDevice.mainServiceUuid);
+
       txCharacteristic = service.characteristics.firstWhere(
           (e) => e.characteristicId.toString() == ThermalDevice.txServiceUuid);
       rxCharacteristic = service.characteristics.firstWhere(
           (e) => e.characteristicId.toString() == ThermalDevice.rxServiceUuid);
-    } on StateError {
+    } on StateError catch (e) {
+      _showSnackbarError(e.message);
       return null;
     }
 
@@ -82,9 +98,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     };
   }
 
-  List<int> _parseInput() =>
-      textEditingController.text.split(',').map(int.parse).toList();
-
   void _showSnackbarError(String text) {
     final snackBar = SnackBar(
       content: Text(text),
@@ -93,63 +106,74 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
-  void _processRequest(Function request) async {
+  Future<void> _transmit(
+      Map<String, QualifiedCharacteristic> characteristics) async {
+    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
+
     setState(() => _isProcessingRequest = true);
-    await _connectCallback();
 
-    await request();
-
-    // await _disconnectCallback();
-    setState(() => _isProcessingRequest = false);
-  }
-
-  Future<void> _read(QualifiedCharacteristic rxCharacteristic) async {
-    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
-
-    late final List<int> results;
+    // Initiate connexion to BLE
     try {
-      results = await ble.readCharacteristic(rxCharacteristic);
+      await _connectCallback();
     } on Exception catch (e) {
-      results = [];
       _showSnackbarError('Error while reading :\n$e');
-    }
-
-    setState(() {
-      writeOutput =
-          results.isNotEmpty ? results[0].toString() : 'None received';
-    });
-  }
-
-  Future<void> _subscribeCharacteristic(
-      QualifiedCharacteristic txCharacteristic) async {
-    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
-    _subscribeStream =
-        ble.subscribeToCharacteristic(txCharacteristic).listen((event) {
+      await _disconnectCallback();
       setState(() {
-        subscribeOutput = event.toString();
+        writeOutput = 'Failed to connect';
+        subscribeOutput = '';
+        return;
       });
-    });
-    setState(() {
-      subscribeOutput = 'Notification set';
-    });
-  }
+    }
 
-  Future<void> _transmit(QualifiedCharacteristic txCharacteristic,
-      {required bool requestResponse}) async {
-    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
-
+    // Prepare a listener
     try {
-      requestResponse
-          ? await ble.writeCharacteristicWithResponse(txCharacteristic,
-              value: _parseInput())
-          : await ble.writeCharacteristicWithoutResponse(txCharacteristic,
-              value: _parseInput());
+      _subscribeStream =
+          ble.subscribeToCharacteristic(characteristics['rx']!).listen((event) {
+        // This automatically disconnect
+        setState(() {
+          subscribeOutput = String.fromCharCodes(event);
+        });
+      });
     } on Exception catch (e) {
       _showSnackbarError('Error while reading :\n$e');
+      try {
+        await _disconnectCallback();
+      } on Exception {
+        //
+      }
+
+      setState(() {
+        writeOutput = 'Failed Subscribing';
+        subscribeOutput = '';
+        return;
+      });
+    }
+
+    // Prevents from rapid fire the BLE
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Send some data
+    try {
+      await ble.writeCharacteristicWithResponse(characteristics['tx']!,
+          value: ascii.encode(textEditingController.text));
+    } on Exception catch (e) {
+      _showSnackbarError('Error while reading :\n$e');
+      try {
+        await _disconnectCallback();
+      } on Exception {
+        //
+      }
+      setState(() {
+        writeOutput = 'Failed transmitting';
+        subscribeOutput = '';
+        return;
+      });
     }
 
     setState(() {
-      writeOutput = requestResponse ? 'Ok' : 'Done';
+      _isProcessingRequest = false;
+      writeOutput = 'Transmitted';
+      subscribeOutput = 'Waiting';
     });
   }
 
@@ -183,49 +207,20 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                               controller: textEditingController,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
-                                labelText: 'Value',
-                              ),
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                decimal: true,
-                                signed: false,
+                                labelText: 'Command',
                               ),
                             ),
                           ),
                           ElevatedButton(
-                            onPressed: () =>
-                                _processRequest(() => _read(charac['rx']!)),
-                            child: const Text('Read'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => _processRequest(() => _transmit(
-                                charac['tx']!,
-                                requestResponse: true)),
+                            onPressed: () => _transmit(charac),
                             child: const Text('With response'),
                           ),
-                          ElevatedButton(
-                            onPressed: () => _processRequest(() => _transmit(
-                                charac['tx']!,
-                                requestResponse: false)),
-                            child: const Text('Without response'),
-                          ),
                           Padding(
-                            padding: const EdgeInsetsDirectional.only(top: 8.0),
+                            padding:
+                                const EdgeInsetsDirectional.only(bottom: 28.0),
                             child: Text('Output: $writeOutput'),
                           ),
-                          const Text('Subscribe / notify',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              ElevatedButton(
-                                onPressed: () => _processRequest(() =>
-                                    _subscribeCharacteristic(charac['tx']!)),
-                                child: const Text('Subscribe'),
-                              ),
-                              Text('Output: $subscribeOutput'),
-                            ],
-                          ),
+                          Text('Response: $subscribeOutput'),
                         ],
                 ),
               ),
