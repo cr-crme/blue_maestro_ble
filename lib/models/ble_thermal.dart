@@ -1,55 +1,61 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bluetooth_flutter_test/helpers/ble_facade/ble_device_connector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
-import 'package:provider/provider.dart';
 
 import '/helpers/ble_facade/ble_scanner.dart';
 import '/helpers/constants.dart';
 
 class BleThermal {
-  BleThermal();
+  String? lastError;
+  bool isInitialized = false;
+  late final FlutterReactiveBle _ble;
+  late final BleScanner scanner;
+  late final BleDeviceConnector connector;
+  late final StreamSubscription<BleScannerState> _stateStream;
+  List<DiscoveredDevice> _discoveredDevices = [];
 
-  bool _isScanning = false;
+  bool isScanning = false;
   Map<String, QualifiedCharacteristic>? _characteristics;
   DiscoveredDevice? _bleDevice;
 
-  Future<bool> tryInitialize(
+  Future<String?> tryInitialize(
     BuildContext context, {
     Function(String errorMessage)? onErrorCallback,
   }) async {
+    ///
+    /// Try initialize and connect to the BLE thermal device.
+    /// Returns null on success, returns the error message otherwise
+
+    // Starting device
+    if (!isInitialized) {
+      try {
+        _ble = FlutterReactiveBle();
+      } on Exception {
+        return 'Could not initialize the device';
+      }
+      isInitialized = true;
+      scanner = BleScanner(_ble);
+      _stateStream = scanner.state
+          .listen((event) => _discoveredDevices = event.discoveredDevices);
+      connector = BleDeviceConnector(_ble);
+    }
+
     // If we already have all the necessary information
-    if (_characteristics != null) return true;
+    if (_characteristics != null) return null;
 
-    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
-    final connector = Provider.of<BleDeviceConnector>(context, listen: false);
-    final scanner = Provider.of<BleScanner>(context, listen: false);
-    final status = Provider.of<BleStatus?>(context, listen: false);
-    final state = Provider.of<BleScannerState?>(context, listen: false);
-
-    // Start the scanning if necessary
-    if (!_isScanning) scanner.startScan([]);
-    _isScanning = true;
-    // TODO find using the serviceUuid (since it is more general)
-    // scanner.connectToAdvertisingDevice(
-    //         id: "",
-    //         withServices: [Uuid.parse(ThermalDevice.mainServiceUuid)],
-    //         prescanDuration: const Duration(seconds: 10));
-
-    _bleDevice = await _findDevice(status, state);
-    if (_bleDevice == null) return false;
-
-    scanner.stopScan();
-    _isScanning = false;
+    _bleDevice = await _findDevice();
+    if (_bleDevice == null) return 'Could not find the device';
 
     final services =
-        await _findServices(ble, connector, onErrorCallback: onErrorCallback);
-    if (services == null) return false;
+        await _findServices(_ble, connector, onErrorCallback: onErrorCallback);
+    if (services == null) return 'Could not find the services';
 
     _characteristics = await _findCharacteristics(services);
 
-    return true;
+    return null;
   }
 
   String get name => _bleDevice != null ? _bleDevice!.name : '';
@@ -68,9 +74,6 @@ class BleThermal {
     Function(String)? responseCallback,
     Function(String errorMessage)? onErrorCallback,
   }) async {
-    final ble = Provider.of<FlutterReactiveBle>(context, listen: false);
-    final connector = Provider.of<BleDeviceConnector>(context, listen: false);
-
     if (_characteristics == null) {
       _processError(connector, 'Characteristics are not ready',
           keepAlive: false, onErrorCallback: onErrorCallback);
@@ -88,7 +91,7 @@ class BleThermal {
 
     // Prepare a listener before sending data
     try {
-      ble.subscribeToCharacteristic(_characteristics!['rx']!).listen((event) {
+      _ble.subscribeToCharacteristic(_characteristics!['rx']!).listen((event) {
         // This automatically disconnect
         if (responseCallback != null) {
           responseCallback(String.fromCharCodes(event));
@@ -102,7 +105,7 @@ class BleThermal {
 
     // Send the data
     try {
-      await ble.writeCharacteristicWithResponse(_characteristics!['tx']!,
+      await _ble.writeCharacteristicWithResponse(_characteristics!['tx']!,
           value: ascii.encode(command));
     } on Exception {
       _processError(connector, 'Could not transmit',
@@ -124,15 +127,28 @@ class BleThermal {
     if (!keepAlive) disconnect(connector);
   }
 
-  Future<DiscoveredDevice?> _findDevice(
-      BleStatus? status, BleScannerState? state) async {
-    if (state == null || state.discoveredDevices.isEmpty) return null;
+  Future<DiscoveredDevice?> _findDevice() async {
+    // Start the scanning if necessary
+    if (!isScanning) scanner.startScan([]);
+    isScanning = true;
+    // TODO find using the serviceUuid (since it is more general)
+    // scanner.connectToAdvertisingDevice(
+    //         id: "",
+    //         withServices: [Uuid.parse(ThermalDevice.mainServiceUuid)],
+    //         prescanDuration: const Duration(seconds: 10));
 
-    final index = state.discoveredDevices
-        .indexWhere((e) => e.id == ThermalDevice.deviceId);
+    if (_discoveredDevices.isEmpty) return null;
+
+    final index =
+        _discoveredDevices.indexWhere((e) => e.id == ThermalDevice.deviceId);
     if (index < 0) return null;
 
-    return state.discoveredDevices[index];
+    // Cleaning the scanner
+    _stateStream.cancel();
+    scanner.stopScan();
+    isScanning = false;
+
+    return _discoveredDevices[index];
   }
 
   Future<List<DiscoveredService>?> _findServices(

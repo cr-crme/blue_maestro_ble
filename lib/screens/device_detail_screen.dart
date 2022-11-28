@@ -33,18 +33,18 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Future<bool> _connectBleThermal() async {
-    final success = await _bleThermal.tryInitialize(context);
-    if (success) {
-      setState(() {
-        _writeOutput = 'connected';
-      });
+    final errorMessage = await _bleThermal.tryInitialize(context);
+    if (errorMessage == null) {
+      setState(() {});
     } else {
+      _processError('$errorMessage, retrying in 5 seconds');
+      await Future.delayed(const Duration(seconds: 5));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _isBleReady = _connectBleThermal();
       });
     }
 
-    return success;
+    return errorMessage == null;
   }
 
   @override
