@@ -14,10 +14,7 @@ class DeviceDetailScreen extends StatefulWidget {
 }
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
-  late String _writeOutput;
-  late StreamSubscription<List<int>>? _subscribeStream;
-  late TextEditingController _textEditingController;
-
+  String _writeOutput = '';
   final _bleThermal = BleThermal();
   late Future<bool> _isBleReady;
   bool _isTransmitting = false;
@@ -27,9 +24,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     super.initState();
 
     _isBleReady = _connectBleThermal();
-
-    _writeOutput = '';
-    _textEditingController = TextEditingController();
   }
 
   Future<bool> _connectBleThermal() async {
@@ -47,22 +41,14 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return errorCode == BleThermalStatusCode.success;
   }
 
-  @override
-  void dispose() {
-    _subscribeStream?.cancel();
-    super.dispose();
-  }
-
   void _printResponse(String response) {
-    debugPrint('Response received');
     setState(() {
-      debugPrint(response);
-      _writeOutput = response;
+      _writeOutput = response == '' ? 'Received empty data' : response;
       return;
     });
   }
 
-  void _processError(BleThermalStatusCode errorCode, String message) {
+  void _processError(BleThermalStatusCode errorCode, String? message) {
     late String errorMessage;
     if (errorCode == BleThermalStatusCode.couldNotInitializeDevice) {
       errorMessage = 'Could not initialize the device';
@@ -73,7 +59,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     } else {
       errorMessage = 'Unknown error';
     }
-    errorMessage += ', $message';
+    if (message != null) errorMessage += ', $message';
 
     final snackBar = SnackBar(
       content: Text(errorMessage),
@@ -88,12 +74,51 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     });
   }
 
-  Future<void> _transmit() async {
-    setState(() => _isTransmitting = true);
-    await _bleThermal.transmit(context, _textEditingController.text,
-        responseCallback: _printResponse,
-        onErrorCallback: (status) => _processError(status, ''));
-    setState(() => _isTransmitting = false);
+  Future<void> _transmit(String command) async {
+    try {
+      setState(() => _isTransmitting = true);
+      await _bleThermal.transmit(context, command,
+          responseCallback: _printResponse,
+          onErrorCallback: (status) => _processError(status, null));
+    } catch (_) {
+      _processError(BleThermalStatusCode.unknownError, null);
+    } finally {
+      setState(() => _isTransmitting = false);
+    }
+  }
+
+  Future<void> _transmitWithNumbers(String command, String title) async {
+    var controller = TextEditingController();
+    var alert = AlertDialog(
+      title: Text(title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop(
+                  controller.text == '' ? null : int.parse(controller.text));
+            },
+            child: const Text('ok'),
+          ),
+        ],
+      ),
+    );
+
+    final answer = await showDialog<int?>(
+      context: context,
+      builder: (context) {
+        return alert;
+      },
+    );
+    if (answer == null) return;
+
+    final newCommand = '$command$answer';
+    _transmit(newCommand);
   }
 
   @override
@@ -104,36 +129,52 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
           if (isBleReady.hasData && isBleReady.data!) {
             return Scaffold(
               appBar: AppBar(title: Text(_bleThermal.name)),
-              body: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: _isTransmitting
-                    ? [
-                        const Center(child: CircularProgressIndicator()),
-                        const Text('Processing request'),
-                      ]
-                    : [
-                        const Text('Write characteristic',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: TextField(
-                            controller: _textEditingController,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              labelText: 'Command',
-                            ),
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: _transmit,
-                          child: const Text('With response'),
-                        ),
-                        Padding(
-                          padding:
-                              const EdgeInsetsDirectional.only(bottom: 28.0),
-                          child: Text('Output: $_writeOutput'),
-                        ),
-                      ],
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => _transmit('*batt'),
+                      child: const Text('Battery level'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _transmit('*loggert'),
+                      child: const Text('Temperature log'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _transmit('*info'),
+                      child: const Text('Information'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _transmit('*tell'),
+                      child: const Text('Telemetrics'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () =>
+                          _transmitWithNumbers('*lint', 'Time in seconds'),
+                      child: const Text('Set log intervals'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () =>
+                          _transmitWithNumbers('*sint', 'Time in seconds'),
+                      child: const Text('Set sensor intervals'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _transmit('*clr'),
+                      child: const Text('Clear log'),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                        textAlign: TextAlign.center,
+                        'Reponse: ${_isTransmitting ? '\n\nProcessing request' : _writeOutput}'),
+                    if (_isTransmitting)
+                      const Center(
+                          child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(),
+                      )),
+                  ],
+                ),
               ),
             );
           } else {

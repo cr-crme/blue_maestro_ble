@@ -19,6 +19,7 @@ enum BleThermalStatusCode {
   couldNotTransmit,
   couldNotSubscribe,
   characteristicsAreNotReady,
+  unknownError,
 }
 
 class BleLogger {
@@ -28,6 +29,9 @@ class BleLogger {
 }
 
 class BleThermal {
+  BleThermal({this.mock = false});
+
+  bool mock;
   String? lastError;
   bool isInitialized = false;
   late final FlutterReactiveBle _ble;
@@ -115,6 +119,7 @@ class BleThermal {
     // Prepare a listener to receive the response
     try {
       BleLogger.log('Subscribing to characteristics');
+      Future.delayed(const Duration(milliseconds: 500));
       _ble.subscribeToCharacteristic(_characteristics!['rx']!).listen((value) {
         BleLogger.log('Receiving response');
         if (responseCallback != null) {
