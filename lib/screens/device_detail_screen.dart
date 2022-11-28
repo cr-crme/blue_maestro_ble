@@ -33,18 +33,18 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Future<bool> _connectBleThermal() async {
-    final errorMessage = await _bleThermal.tryInitialize(context);
-    if (errorMessage == null) {
+    final errorCode = await _bleThermal.tryInitialize(context);
+    if (errorCode == BleThermalStatusCode.success) {
       setState(() {});
     } else {
-      _processError('$errorMessage, retrying in 5 seconds');
+      _processError(errorCode, 'retrying in 5 seconds');
       await Future.delayed(const Duration(seconds: 5));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _isBleReady = _connectBleThermal();
       });
     }
 
-    return errorMessage == null;
+    return errorCode == BleThermalStatusCode.success;
   }
 
   @override
@@ -54,15 +54,29 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   void _printResponse(String response) {
+    debugPrint('Response received');
     setState(() {
+      debugPrint(response);
       _writeOutput = response;
       return;
     });
   }
 
-  void _processError(String message) {
+  void _processError(BleThermalStatusCode errorCode, String message) {
+    late String errorMessage;
+    if (errorCode == BleThermalStatusCode.couldNotInitializeDevice) {
+      errorMessage = 'Could not initialize the device';
+    } else if (errorCode == BleThermalStatusCode.couldNotFindDevice) {
+      errorMessage = 'Could not find the device';
+    } else if (errorCode == BleThermalStatusCode.couldNotFindServices) {
+      errorMessage = 'Could not find services';
+    } else {
+      errorMessage = 'Unknown error';
+    }
+    errorMessage += ', $message';
+
     final snackBar = SnackBar(
-      content: Text(message),
+      content: Text(errorMessage),
       duration: const Duration(seconds: 5),
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
@@ -77,7 +91,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   Future<void> _transmit() async {
     setState(() => _isTransmitting = true);
     await _bleThermal.transmit(context, _textEditingController.text,
-        responseCallback: _printResponse, onErrorCallback: _processError);
+        responseCallback: _printResponse,
+        onErrorCallback: (status) => _processError(status, ''));
     setState(() => _isTransmitting = false);
   }
 
