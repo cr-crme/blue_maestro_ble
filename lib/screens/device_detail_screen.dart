@@ -52,6 +52,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     late String errorMessage;
     if (errorCode == BleThermalStatusCode.couldNotInitializeDevice) {
       errorMessage = 'Could not initialize the device';
+    } else if (errorCode == BleThermalStatusCode.couldNotScan) {
+      errorMessage = 'Could not scan for bluetooth devices.\n'
+          'Please make sure bluetooth is activated and Location '
+          'permission are granted to the app';
     } else if (errorCode == BleThermalStatusCode.couldNotFindDevice) {
       errorMessage = 'Could not find the device';
     } else if (errorCode == BleThermalStatusCode.couldNotFindServices) {

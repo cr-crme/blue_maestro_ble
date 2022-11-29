@@ -12,6 +12,7 @@ import '/helpers/constants.dart';
 enum BleThermalStatusCode {
   success,
   couldNotInitializeDevice,
+  couldNotScan,
   couldNotFindDevice,
   couldNotFetchServices,
   couldNotFindServices,
@@ -71,6 +72,7 @@ class BleThermal {
     if (_characteristics != null) return BleThermalStatusCode.success;
 
     _bleDevice = await _findDevice();
+    if (!scanner.isActive) return BleThermalStatusCode.couldNotScan;
     if (_bleDevice == null) return BleThermalStatusCode.couldNotFindDevice;
 
     final services =
@@ -163,6 +165,7 @@ class BleThermal {
     // Start the scanning if necessary
     if (!isScanning) scanner.startScan([]);
     isScanning = true;
+
     // TODO find using the serviceUuid (since it is more general)
     // scanner.connectToAdvertisingDevice(
     //         id: "",
