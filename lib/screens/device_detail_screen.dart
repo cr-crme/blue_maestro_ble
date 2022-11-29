@@ -18,6 +18,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   final _bleThermal = BleThermal();
   late Future<bool> _isBleReady;
   bool _isTransmitting = false;
+  int _redoCountdown = 3;
+  String _lastCommand = '';
 
   @override
   void initState() {
@@ -76,6 +78,14 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     }
     if (message != null) errorMessage += ', $message';
 
+    if (_redoCountdown > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _transmit(_lastCommand, resetCountdown: false);
+        _redoCountdown--;
+      });
+      errorMessage += '\nRetrying for $_redoCountdown times';
+    }
+
     final snackBar = SnackBar(
       content: Text(errorMessage),
       duration: const Duration(seconds: 5),
@@ -85,12 +95,14 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     setState(() {
       _isTransmitting = false;
       _writeOutput = 'Failed';
-      return;
     });
   }
 
-  Future<void> _transmit(String command) async {
+  Future<void> _transmit(String command, {resetCountdown = true}) async {
+    if (resetCountdown) _redoCountdown = 3;
+
     try {
+      _lastCommand = command;
       setState(() {
         _writeOutput = null;
         _isTransmitting = true;
@@ -189,6 +201,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                       ElevatedButton(
                         onPressed: () => _transmit('*clr'),
                         child: const Text('Clear log'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _transmit('not a real command'),
+                        child: const Text('Dummy'),
                       ),
                       const SizedBox(height: 20),
                       Text(
