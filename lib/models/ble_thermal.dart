@@ -3,7 +3,9 @@ import 'dart:developer' as dev;
 import 'dart:convert';
 
 import 'package:bluetooth_flutter_test/helpers/ble_facade/ble_device_connector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
 import '/helpers/ble_facade/ble_scanner.dart';
@@ -155,6 +157,12 @@ class BleThermal {
       _ble.subscribeToCharacteristic(_characteristics!['rx']!).listen((value) {
         BleLogger.log('Receiving response');
         if (responseCallback != null) {
+          Uint8List byteList = Uint8List.fromList(value);
+          ByteData byteData = ByteData.sublistView(byteList);
+
+          int value3 = byteData.getUint16(0, Endian.little);
+          debugPrint(value3.toString());
+
           responseCallback(String.fromCharCodes(value));
         }
       }).onError((Object e) {
