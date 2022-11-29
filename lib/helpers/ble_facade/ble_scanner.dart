@@ -1,13 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
-import 'reactive_state.dart';
 import 'package:meta/meta.dart';
+
+import 'reactive_state.dart';
 
 class BleScanner implements ReactiveState<BleScannerState> {
   BleScanner(this._ble);
 
-  bool isActive = false;
+  bool isScanning = false;
   final FlutterReactiveBle _ble;
   final StreamController<BleScannerState> _stateStreamController =
       StreamController();
@@ -20,7 +21,7 @@ class BleScanner implements ReactiveState<BleScannerState> {
   void startScan(List<Uuid> serviceIds) {
     _devices.clear();
     _subscription?.cancel();
-    isActive = true;
+    isScanning = true;
 
     _subscription =
         _ble.scanForDevices(withServices: serviceIds).listen((device) {
@@ -46,7 +47,7 @@ class BleScanner implements ReactiveState<BleScannerState> {
   }
 
   Future<void> stopScan() async {
-    isActive = false;
+    isScanning = false;
     await _subscription?.cancel();
     _subscription = null;
     _pushState();

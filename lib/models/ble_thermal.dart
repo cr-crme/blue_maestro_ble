@@ -41,7 +41,6 @@ class BleThermal {
   late final StreamSubscription<BleScannerState> _stateStream;
   List<DiscoveredDevice> _discoveredDevices = [];
 
-  bool isScanning = false;
   Map<String, QualifiedCharacteristic>? _characteristics;
   DiscoveredDevice? _bleDevice;
 
@@ -71,9 +70,13 @@ class BleThermal {
     // If we already have all the necessary information
     if (_characteristics != null) return BleThermalStatusCode.success;
 
-    _bleDevice = await _findDevice();
-    if (!scanner.isActive) return BleThermalStatusCode.couldNotScan;
-    if (_bleDevice == null) return BleThermalStatusCode.couldNotFindDevice;
+    if (_bleDevice == null) {
+      _bleDevice = await _findDevice();
+      if (_bleDevice == null) {
+        if (!scanner.isScanning) return BleThermalStatusCode.couldNotScan;
+        return BleThermalStatusCode.couldNotFindDevice;
+      }
+    }
 
     final services =
         await _findServices(_ble, connector, onErrorCallback: onErrorCallback);
@@ -127,6 +130,9 @@ class BleThermal {
         if (responseCallback != null) {
           responseCallback(String.fromCharCodes(value));
         }
+      }).onError((Object e) {
+        _processError(connector, BleThermalStatusCode.couldNotSubscribe,
+            keepAlive: false, onErrorCallback: onErrorCallback);
       });
     } catch (_) {
       _processError(connector, BleThermalStatusCode.couldNotSubscribe,
@@ -163,8 +169,7 @@ class BleThermal {
   Future<DiscoveredDevice?> _findDevice() async {
     BleLogger.log('Finding devices');
     // Start the scanning if necessary
-    if (!isScanning) scanner.startScan([]);
-    isScanning = true;
+    if (!scanner.isScanning) scanner.startScan([]);
 
     // TODO find using the serviceUuid (since it is more general)
     // scanner.connectToAdvertisingDevice(
@@ -181,7 +186,6 @@ class BleThermal {
     // Cleaning the scanner
     _stateStream.cancel();
     scanner.stopScan();
-    isScanning = false;
 
     return _discoveredDevices[index];
   }
@@ -192,14 +196,6 @@ class BleThermal {
     Function(BleThermalStatusCode status)? onErrorCallback,
   }) async {
     BleLogger.log('Finding services');
-    // Connect to the scanned device
-    try {
-      await connect(connector);
-    } catch (_) {
-      _processError(connector, BleThermalStatusCode.couldNotConnect,
-          keepAlive: true, onErrorCallback: onErrorCallback);
-      return null;
-    }
 
     late final List<DiscoveredService> services;
     try {

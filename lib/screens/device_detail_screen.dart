@@ -14,7 +14,7 @@ class DeviceDetailScreen extends StatefulWidget {
 }
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
-  String _writeOutput = '';
+  String? _writeOutput;
   final _bleThermal = BleThermal();
   late Future<bool> _isBleReady;
   bool _isTransmitting = false;
@@ -36,6 +36,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _isBleReady = _connectBleThermal();
       });
+      return false;
     }
 
     return errorCode == BleThermalStatusCode.success;
@@ -43,12 +44,20 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   void _printResponse(String response) {
     setState(() {
-      _writeOutput = response == '' ? 'Received empty data' : response;
+      _writeOutput ??= 'Response:\n';
+
+      _writeOutput = response == ''
+          ? '$_writeOutput\nReceived empty data'
+          : '$_writeOutput\n$response';
       return;
     });
   }
 
   void _processError(BleThermalStatusCode errorCode, String? message) {
+    // Sometimes the error processing is called even though we got an answer
+    // If so, just ignore the error
+    if (_writeOutput != null) return;
+
     late String errorMessage;
     if (errorCode == BleThermalStatusCode.couldNotInitializeDevice) {
       errorMessage = 'Could not initialize the device';
@@ -60,6 +69,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       errorMessage = 'Could not find the device';
     } else if (errorCode == BleThermalStatusCode.couldNotFindServices) {
       errorMessage = 'Could not find services';
+    } else if (errorCode == BleThermalStatusCode.couldNotSubscribe) {
+      errorMessage = 'Could not subscribe to services, try again';
     } else {
       errorMessage = 'Unknown error';
     }
@@ -80,7 +91,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   Future<void> _transmit(String command) async {
     try {
-      setState(() => _isTransmitting = true);
+      setState(() {
+        _writeOutput = null;
+        _isTransmitting = true;
+      });
       await _bleThermal.transmit(context, command,
           responseCallback: _printResponse,
           onErrorCallback: (status) => _processError(status, null));
@@ -133,51 +147,63 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
           if (isBleReady.hasData && isBleReady.data!) {
             return Scaffold(
               appBar: AppBar(title: Text(_bleThermal.name)),
-              body: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => _transmit('*batt'),
-                      child: const Text('Battery level'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => _transmit('*loggert'),
-                      child: const Text('Temperature log'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => _transmit('*info'),
-                      child: const Text('Information'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => _transmit('*tell'),
-                      child: const Text('Telemetrics'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () =>
-                          _transmitWithNumbers('*lint', 'Time in seconds'),
-                      child: const Text('Set log intervals'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () =>
-                          _transmitWithNumbers('*sint', 'Time in seconds'),
-                      child: const Text('Set sensor intervals'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => _transmit('*clr'),
-                      child: const Text('Clear log'),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                        textAlign: TextAlign.center,
-                        'Reponse: ${_isTransmitting ? '\n\nProcessing request' : _writeOutput}'),
-                    if (_isTransmitting)
-                      const Center(
-                          child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: CircularProgressIndicator(),
-                      )),
-                  ],
+              body: SingleChildScrollView(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () => _transmit('*batt'),
+                        child: const Text('Battery level'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _transmit('*info'),
+                        child: const Text('Information'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _transmit('*tell'),
+                        child: const Text('Telemetrics'),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () => _transmit('*loggert'),
+                        child: const Text('Temperature log'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _transmit('*loggerh'),
+                        child: const Text('Humidity log'),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () =>
+                            _transmitWithNumbers('*lint', 'Time in seconds'),
+                        child: const Text('Set log intervals'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () =>
+                            _transmitWithNumbers('*sint', 'Time in seconds'),
+                        child: const Text('Set sensor intervals'),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () => _transmit('*clr'),
+                        child: const Text('Clear log'),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                          textAlign: TextAlign.center,
+                          _isTransmitting
+                              ? 'Processing request'
+                              : _writeOutput ?? 'Unknown error'),
+                      if (_isTransmitting)
+                        const Center(
+                            child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator(),
+                        )),
+                    ],
+                  ),
                 ),
               ),
             );
