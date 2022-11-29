@@ -180,12 +180,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                       ),
                       const SizedBox(height: 20),
                       ElevatedButton(
-                        onPressed: () => _transmit('*loggert'),
-                        child: const Text('Temperature log'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => _transmit('*loggerh'),
-                        child: const Text('Humidity log'),
+                        onPressed: () => _transmit('*logall'),
+                        child: const Text('Get sensor logs'),
                       ),
                       const SizedBox(height: 20),
                       ElevatedButton(
