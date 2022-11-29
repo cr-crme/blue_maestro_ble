@@ -18,7 +18,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   final _bleThermal = BleThermal();
   late Future<bool> _isBleReady;
   bool _isTransmitting = false;
-  int _redoCountdown = 3;
+  int _redoCountdown = 0;
   String _lastCommand = '';
 
   @override
@@ -41,6 +41,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       return false;
     }
 
+    if (errorCode == BleThermalStatusCode.success) _writeOutput = 'Connected';
     return errorCode == BleThermalStatusCode.success;
   }
 
@@ -72,7 +73,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     } else if (errorCode == BleThermalStatusCode.couldNotFindServices) {
       errorMessage = 'Could not find services';
     } else if (errorCode == BleThermalStatusCode.couldNotSubscribe) {
-      errorMessage = 'Could not subscribe to services, try again';
+      errorMessage = 'Could not subscribe to services';
     } else {
       errorMessage = 'Unknown error';
     }
@@ -211,7 +212,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                           textAlign: TextAlign.center,
                           _isTransmitting
                               ? 'Processing request'
-                              : _writeOutput ?? 'Unknown error'),
+                              : _writeOutput ?? 'Empty response'),
                       if (_isTransmitting)
                         const Center(
                             child: Padding(

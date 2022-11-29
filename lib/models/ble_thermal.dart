@@ -111,17 +111,44 @@ class BleThermal {
       return BleThermalStatusCode.couldNotTransmit;
     }
 
+    // Register to the response
+    // Prepare a listener to receive the response
+    final resultAdvertising = await listenAdvertisement(
+      responseCallback: responseCallback,
+      onErrorCallback: onErrorCallback,
+    );
+    if (resultAdvertising != BleThermalStatusCode.success) {
+      return resultAdvertising;
+    }
+
+    // Send the data
+    try {
+      BleLogger.log('Transmitting request');
+      await _ble.writeCharacteristicWithResponse(_characteristics!['tx']!,
+          value: ascii.encode(command));
+    } catch (_) {
+      _processError(connector, BleThermalStatusCode.couldNotTransmit,
+          keepAlive: false, onErrorCallback: onErrorCallback);
+      return BleThermalStatusCode.couldNotTransmit;
+    }
+
+    await disconnect(connector);
+    return BleThermalStatusCode.success;
+  }
+
+  Future<BleThermalStatusCode> listenAdvertisement({
+    Function(String)? responseCallback,
+    Function(BleThermalStatusCode errorMessage)? onErrorCallback,
+  }) async {
     // Initiate connexion to BLE
     try {
       await connect(connector);
     } catch (_) {
       _processError(connector, BleThermalStatusCode.couldNotConnect,
           keepAlive: false, onErrorCallback: onErrorCallback);
-      return BleThermalStatusCode.couldNotTransmit;
+      return BleThermalStatusCode.couldNotConnect;
     }
 
-    // Register to the response
-    // Prepare a listener to receive the response
     try {
       BleLogger.log('Subscribing to characteristics');
       Future.delayed(const Duration(milliseconds: 500));
@@ -139,19 +166,6 @@ class BleThermal {
           keepAlive: false, onErrorCallback: onErrorCallback);
       return BleThermalStatusCode.couldNotSubscribe;
     }
-
-    // Send the data
-    try {
-      BleLogger.log('Transmitting request');
-      await _ble.writeCharacteristicWithResponse(_characteristics!['tx']!,
-          value: ascii.encode(command));
-    } catch (_) {
-      _processError(connector, BleThermalStatusCode.couldNotTransmit,
-          keepAlive: false, onErrorCallback: onErrorCallback);
-      return BleThermalStatusCode.couldNotTransmit;
-    }
-
-    await disconnect(connector);
     return BleThermalStatusCode.success;
   }
 
