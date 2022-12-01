@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:bluetooth_flutter_test/models/ble_thermal_response.dart';
 import 'package:flutter/material.dart';
 
 import '/models/ble_thermal.dart';
@@ -46,84 +46,23 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return status == BleThermalStatusCode.success;
   }
 
-  void _handleAsciiResponse(List<int> response) {
+  void _handleAsciiResponse(BleThermalResponse response) {
     setState(() {
-      final responseAsString = String.fromCharCodes(_bleThermal.responseLog);
-
-      _writeOutput = responseAsString == ''
+      _writeOutput = response.isEmpty
           ? 'Received empty data'
-          : 'Response:\n$responseAsString';
+          : 'Response:\n${response.toAscii().map((e) => '$e\n')}';
       return;
     });
   }
 
-  List<int> _toMeasure(List<int> entries) {
-    Uint8List byteList = Uint8List.fromList(entries);
-
-    // Convert each successive pairs to int16 as Big Endian
-    final List<int> measures = [];
-    for (int i = 0; i < entries.length; i += 2) {
-      ByteData byteData = ByteData.sublistView(byteList, i, i + 2);
-      measures.add(byteData.getInt16(0, Endian.big));
-    }
-    return measures;
-  }
-
-  void _handleLogallResponse(List<int> response) {
-    ///
-    /// The '*logall' command, contrary to all other responses, is not in ASCII.
-    /// It is made from a first header of 15 bytes. The first 2 are for
-    /// the number of temperature measures, the next 2 are for the number
-    /// humidity measures, the next 2 are for the number of atmospheric
-    /// pressure. I could not figure out the remaining 9 bytes, but I suspect
-    /// the last few are timestamp.
-    /// The next responses are the sensor measurements made of 20 bytes,
-    /// corresponding to 10 big endian int16 measurements. After the last
-    /// measurement two bytes are sent (0x2C 0x2C) and the remmaining bytes
-    /// are 0 padded. Then the next sensor is sent.
-    /// The order of the sensors is
-    /// temperature, humidity and atmospheric pressure.
-
-    final entries = _bleThermal.responseLog;
-    const headerSize = 15;
-    if (entries.length < headerSize) return; // Chech if we received the header
-
-    // We are extracting some values *per sensor* from the header
-    final List<int> numberMeasurements =
-        _toMeasure(entries.getRange(0, 6).toList()); // number measurements
-
-    // For each sensor
-    var runningCountFirst = headerSize; // First entry starts after header
-    final List<int> firstMeasurements = []; // position of the starting
-    for (var numberMeasurement in numberMeasurements) {
-      firstMeasurements.add(runningCountFirst);
-      // Compute the number of bytes (including the padding) so we can compute
-      // next first measurement position
-      runningCountFirst += (numberMeasurement / 10).ceil() * 20;
-    }
-    final lastBytePosition = runningCountFirst;
-
-    // If there are still data to come
-    debugPrint(entries.length.toString());
-    debugPrint(lastBytePosition.toString());
-    if (entries.length < lastBytePosition) return;
-    if (entries.length > lastBytePosition) {
-      throw Exception('Too much packages!');
-    }
-
-    // Convert each successive pairs to int16 as Big Endian
-    final List<List<int>> measurements = [];
-    for (var i = 0; i < 3; i++) {
-      measurements.add(_toMeasure(entries
-          .getRange(firstMeasurements[i],
-              firstMeasurements[i] + numberMeasurements[i])
-          .toList()));
-    }
+  void _handleLogallResponse(BleThermalResponse response) {
+    final measurements = response.asMeasurements();
+    if (measurements == null) return;
 
     setState(() {
-      _writeOutput = 'Temperature = ${measurements[0]}.\n\n'
-          'Humidity = ${measurements[1]}\n\n'
-          'Atmospheric pressure = ${measurements[2]}';
+      _writeOutput = 'Temperature = ${measurements.temperature}.\n\n'
+          'Humidity = ${measurements.humidity}\n\n'
+          'Atmospheric pressure = ${measurements.atmosphericPressure}';
     });
   }
 
@@ -140,8 +79,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Future<void> _transmit(String command,
-      {required Function(List<int> response) onResponse}) async {
-    _bleThermal.responseLog.clear();
+      {required Function(BleThermalResponse) onResponse}) async {
     setState(() {
       _writeOutput = null;
       _isTransmitting = true;
@@ -156,7 +94,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Future<void> _transmitWithNumbers(String command, String title,
-      {required Function(List<int> response) onResponse}) async {
+      {required Function(BleThermalResponse) onResponse}) async {
     var controller = TextEditingController();
     var alert = AlertDialog(
       title: Text(title),

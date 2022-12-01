@@ -1,12 +1,13 @@
 import 'dart:async';
-import 'dart:developer' as dev;
 import 'dart:convert';
+import 'dart:developer' as dev;
 
 import 'package:bluetooth_flutter_test/helpers/ble_facade/ble_device_connector.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
 import '/helpers/ble_facade/ble_scanner.dart';
 import '/helpers/constants.dart';
+import '/models/ble_thermal_response.dart';
 
 enum BleThermalStatusCode {
   success,
@@ -60,7 +61,7 @@ class BleThermal {
   Map<String, QualifiedCharacteristic>? _characteristics;
   DiscoveredDevice? _bleDevice;
 
-  List<int> responseLog = [];
+  final _transmitResponse = BleThermalResponse();
 
   Future<BleThermalStatusCode> tryInitialize(
       {maximumRetries = 0, retryTime = const Duration(seconds: 5)}) async {
@@ -140,18 +141,17 @@ class BleThermal {
   Future<BleThermalStatusCode> transmit(String command,
       {maximumRetries = 3,
       retryTime = const Duration(seconds: 5),
-      required Function(List<int>) onResponse}) async {
+      required Function(BleThermalResponse) onResponse}) async {
     // Sanity check
     if (_characteristics == null) return BleThermalStatusCode.couldNotTransmit;
+    BleThermalStatusCode result;
+    _transmitResponse.clear();
 
     // Register to the response
     // Prepare a listener to receive the response
-    final resultAdvertising = await listenAdvertisement(onResponse: onResponse);
-    if (resultAdvertising != BleThermalStatusCode.success) {
-      return resultAdvertising;
-    }
+    result = await listenAdvertisement(onResponse: onResponse);
+    if (result != BleThermalStatusCode.success) return result;
 
-    late BleThermalStatusCode result;
     for (int retry = 0; retry < maximumRetries; retry++) {
       // Leave some time before retrying
       if (retry != 0) {
@@ -161,7 +161,12 @@ class BleThermal {
       }
 
       result = await _transmit(command);
-      if (result == BleThermalStatusCode.success) return result;
+      if (result == BleThermalStatusCode.success) break;
+    }
+
+    if (result != BleThermalStatusCode.success) {
+      BleLogger.log('Transmission failed');
+      return result;
     }
 
     return result;
@@ -188,15 +193,16 @@ class BleThermal {
     return BleThermalStatusCode.success;
   }
 
-  Future<BleThermalStatusCode> listenAdvertisement(
-      {required Function(List<int>) onResponse}) async {
+  Future<BleThermalStatusCode> listenAdvertisement({
+    String? command,
+    required Function(BleThermalResponse) onResponse,
+  }) async {
     try {
       BleLogger.log('Subscribing to characteristics');
       _ble.subscribeToCharacteristic(_characteristics!['rx']!).listen((values) {
         BleLogger.log('Receiving response');
-        BleLogger.log(values.toString());
-        responseLog += values;
-        onResponse(values);
+        _transmitResponse.add(values);
+        onResponse(_transmitResponse);
       }).onError((Object e) => BleThermalStatusCode.responseError);
     } on Exception {
       return BleThermalStatusCode.couldNotSubscribe;
