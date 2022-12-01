@@ -3,9 +3,6 @@ import 'dart:developer' as dev;
 import 'dart:convert';
 
 import 'package:bluetooth_flutter_test/helpers/ble_facade/ble_device_connector.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
 import '/helpers/ble_facade/ble_scanner.dart';
@@ -16,13 +13,31 @@ enum BleThermalStatusCode {
   couldNotInitializeDevice,
   couldNotScan,
   couldNotFindDevice,
-  couldNotFetchServices,
   couldNotFindServices,
   couldNotConnect,
   couldNotTransmit,
   couldNotSubscribe,
+  responseError,
   characteristicsAreNotReady,
   unknownError,
+}
+
+String errorCodeToString(BleThermalStatusCode errorCode) {
+  if (errorCode == BleThermalStatusCode.couldNotInitializeDevice) {
+    return 'Could not initialize the device';
+  } else if (errorCode == BleThermalStatusCode.couldNotScan) {
+    return 'Could not scan for bluetooth devices.\n'
+        'Please make sure bluetooth is activated and Location '
+        'permission are granted to the app';
+  } else if (errorCode == BleThermalStatusCode.couldNotFindDevice) {
+    return 'Could not find the device';
+  } else if (errorCode == BleThermalStatusCode.couldNotFindServices) {
+    return 'Could not find services';
+  } else if (errorCode == BleThermalStatusCode.couldNotSubscribe) {
+    return 'Could not subscribe to services';
+  } else {
+    return 'Unknown error';
+  }
 }
 
 class BleLogger {
@@ -35,21 +50,42 @@ class BleThermal {
   BleThermal({this.mock = false});
 
   bool mock;
-  String? lastError;
+
   bool isInitialized = false;
   late final FlutterReactiveBle _ble;
   late final BleScanner scanner;
   late final BleDeviceConnector connector;
   late final StreamSubscription<BleScannerState> _stateStream;
   List<DiscoveredDevice> _discoveredDevices = [];
-
   Map<String, QualifiedCharacteristic>? _characteristics;
   DiscoveredDevice? _bleDevice;
 
+  List<int> responseLog = [];
+
   Future<BleThermalStatusCode> tryInitialize(
-    BuildContext context, {
-    Function(BleThermalStatusCode status)? onErrorCallback,
-  }) async {
+      {maximumRetries = 0, retryTime = const Duration(seconds: 5)}) async {
+    late BleThermalStatusCode result;
+    for (int retry = 0; retry < maximumRetries + 1; retry++) {
+      // Leave some time before retrying
+      if (retry != 0) {
+        BleLogger.log('Initialization failed, retrying '
+            '${maximumRetries - retry} times (in $retryTime seconds)');
+        await Future.delayed(retryTime);
+      }
+
+      result = await _tryInitialize();
+      if (result == BleThermalStatusCode.success) return result;
+
+      // If scan failed, it means rights are not granted, there is no point
+      // retrying. So we return now.
+      if (result == BleThermalStatusCode.couldNotScan) return result;
+    }
+
+    // If we get there, the transmission failed
+    return result;
+  }
+
+  Future<BleThermalStatusCode> _tryInitialize() async {
     ///
     /// Try initialize and connect to the BLE thermal device.
     /// Returns null on success, returns the error message otherwise
@@ -59,7 +95,7 @@ class BleThermal {
       BleLogger.log('Initializing device');
       try {
         _ble = FlutterReactiveBle();
-      } catch (_) {
+      } on Exception {
         return BleThermalStatusCode.couldNotInitializeDevice;
       }
       isInitialized = true;
@@ -80,11 +116,11 @@ class BleThermal {
       }
     }
 
-    final services =
-        await _findServices(_ble, connector, onErrorCallback: onErrorCallback);
+    final services = await _findServices(_ble, connector);
     if (services == null) return BleThermalStatusCode.couldNotFindServices;
 
     _characteristics = await _findCharacteristics(services);
+    await _ble.requestMtu(deviceId: _bleDevice!.id, mtu: 64);
 
     return BleThermalStatusCode.success;
   }
@@ -101,91 +137,71 @@ class BleThermal {
     if (_bleDevice != null) connector.disconnect(_bleDevice!.id);
   }
 
-  Future<BleThermalStatusCode> transmit(
-    BuildContext context,
-    String command, {
-    Function(String)? responseCallback,
-    Function(BleThermalStatusCode errorMessage)? onErrorCallback,
-  }) async {
-    if (_characteristics == null) {
-      _processError(connector, BleThermalStatusCode.characteristicsAreNotReady,
-          keepAlive: false, onErrorCallback: onErrorCallback);
-      return BleThermalStatusCode.couldNotTransmit;
-    }
+  Future<BleThermalStatusCode> transmit(String command,
+      {maximumRetries = 3,
+      retryTime = const Duration(seconds: 5),
+      required Function(List<int>) onResponse}) async {
+    // Sanity check
+    if (_characteristics == null) return BleThermalStatusCode.couldNotTransmit;
 
     // Register to the response
     // Prepare a listener to receive the response
-    final resultAdvertising = await listenAdvertisement(
-      responseCallback: responseCallback,
-      onErrorCallback: onErrorCallback,
-    );
+    final resultAdvertising = await listenAdvertisement(onResponse: onResponse);
     if (resultAdvertising != BleThermalStatusCode.success) {
       return resultAdvertising;
     }
 
+    late BleThermalStatusCode result;
+    for (int retry = 0; retry < maximumRetries; retry++) {
+      // Leave some time before retrying
+      if (retry != 0) {
+        BleLogger.log('Transmission failed, retrying '
+            '${maximumRetries - retry} times (in $retryTime seconds)');
+        await Future.delayed(retryTime);
+      }
+
+      result = await _transmit(command);
+      if (result == BleThermalStatusCode.success) return result;
+    }
+
+    return result;
+  }
+
+  Future<BleThermalStatusCode> _transmit(String command) async {
+    // Initiate connexion to BLE
+    try {
+      await connect(connector);
+    } on Exception {
+      return BleThermalStatusCode.couldNotConnect;
+    }
+
     // Send the data
+    await Future.delayed(const Duration(milliseconds: 500));
     try {
       BleLogger.log('Transmitting request');
       await _ble.writeCharacteristicWithResponse(_characteristics!['tx']!,
           value: ascii.encode(command));
-    } catch (_) {
-      _processError(connector, BleThermalStatusCode.couldNotTransmit,
-          keepAlive: false, onErrorCallback: onErrorCallback);
+    } on Exception {
       return BleThermalStatusCode.couldNotTransmit;
     }
 
-    await disconnect(connector);
     return BleThermalStatusCode.success;
   }
 
-  Future<BleThermalStatusCode> listenAdvertisement({
-    Function(String)? responseCallback,
-    Function(BleThermalStatusCode errorMessage)? onErrorCallback,
-  }) async {
-    // Initiate connexion to BLE
-    try {
-      await connect(connector);
-    } catch (_) {
-      _processError(connector, BleThermalStatusCode.couldNotConnect,
-          keepAlive: false, onErrorCallback: onErrorCallback);
-      return BleThermalStatusCode.couldNotConnect;
-    }
-
+  Future<BleThermalStatusCode> listenAdvertisement(
+      {required Function(List<int>) onResponse}) async {
     try {
       BleLogger.log('Subscribing to characteristics');
-      Future.delayed(const Duration(milliseconds: 500));
-      _ble.subscribeToCharacteristic(_characteristics!['rx']!).listen((value) {
+      _ble.subscribeToCharacteristic(_characteristics!['rx']!).listen((values) {
         BleLogger.log('Receiving response');
-        if (responseCallback != null) {
-          Uint8List byteList = Uint8List.fromList(value);
-          ByteData byteData = ByteData.sublistView(byteList);
-
-          int value3 = byteData.getUint16(0, Endian.little);
-          debugPrint(value3.toString());
-
-          responseCallback(String.fromCharCodes(value));
-        }
-      }).onError((Object e) {
-        _processError(connector, BleThermalStatusCode.couldNotSubscribe,
-            keepAlive: false, onErrorCallback: onErrorCallback);
-      });
-    } catch (_) {
-      _processError(connector, BleThermalStatusCode.couldNotSubscribe,
-          keepAlive: false, onErrorCallback: onErrorCallback);
+        BleLogger.log(values.toString());
+        responseLog += values;
+        onResponse(values);
+      }).onError((Object e) => BleThermalStatusCode.responseError);
+    } on Exception {
       return BleThermalStatusCode.couldNotSubscribe;
     }
     return BleThermalStatusCode.success;
-  }
-
-  void _processError(
-    BleDeviceConnector connector,
-    BleThermalStatusCode status, {
-    required bool keepAlive,
-    required Function(BleThermalStatusCode status)? onErrorCallback,
-  }) {
-    BleLogger.log('Processing error');
-    if (onErrorCallback != null) onErrorCallback(status);
-    if (!keepAlive) disconnect(connector);
   }
 
   Future<DiscoveredDevice?> _findDevice() async {
@@ -213,22 +229,13 @@ class BleThermal {
   }
 
   Future<List<DiscoveredService>?> _findServices(
-    FlutterReactiveBle ble,
-    BleDeviceConnector connector, {
-    Function(BleThermalStatusCode status)? onErrorCallback,
-  }) async {
+      FlutterReactiveBle ble, BleDeviceConnector connector) async {
     BleLogger.log('Finding services');
-
-    late final List<DiscoveredService> services;
     try {
-      services = await ble.discoverServices(_bleDevice!.id);
-    } catch (_) {
-      _processError(connector, BleThermalStatusCode.couldNotFetchServices,
-          keepAlive: true, onErrorCallback: onErrorCallback);
+      return await ble.discoverServices(_bleDevice!.id);
+    } on Exception {
       return null;
     }
-
-    return services;
   }
 
   Future<Map<String, QualifiedCharacteristic>?> _findCharacteristics(
