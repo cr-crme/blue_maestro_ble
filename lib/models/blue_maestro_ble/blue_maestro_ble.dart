@@ -24,7 +24,7 @@ class BlueMaestroBle extends ReactiveBle {
     final status = await super.tryInitialize(
       maximumRetries: maximumRetries,
       retryTime: retryTime,
-      deviceMacToFind: BlueMaestroConstants.deviceMac,
+      sigId: BlueMaestroConstants.sigId,
     );
     if (status != BleStatusCode.success) return status;
 

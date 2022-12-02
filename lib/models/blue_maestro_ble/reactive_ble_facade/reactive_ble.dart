@@ -7,6 +7,15 @@ import 'ble_scanner.dart';
 import 'ble_status_code.dart';
 import 'ble_logger.dart';
 
+bool _startWith(List<int> data, List<int> pattern) {
+  for (int index = 0; index < pattern.length; index += 1) {
+    if (data[index] != pattern[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 abstract class ReactiveBle {
   bool isInitialized = false;
   late final FlutterReactiveBle _ble;
@@ -24,7 +33,7 @@ abstract class ReactiveBle {
   Future<BleStatusCode> tryInitialize({
     maximumRetries = 0,
     retryTime = const Duration(seconds: 5),
-    required String deviceMacToFind,
+    required List<int> sigId,
   }) async {
     late BleStatusCode result;
     for (int retry = 0; retry < maximumRetries + 1; retry++) {
@@ -35,7 +44,7 @@ abstract class ReactiveBle {
         await Future.delayed(retryTime);
       }
 
-      result = await _tryInitialize(deviceMacToFind: deviceMacToFind);
+      result = await _tryInitialize(sigId: sigId);
       if (result == BleStatusCode.success) return result;
 
       // If proper rights are not granted, there is no point retrying
@@ -51,8 +60,8 @@ abstract class ReactiveBle {
 
   ///
   /// Performs the actual initialization BLE device.
-  Future<BleStatusCode> _tryInitialize(
-      {required String deviceMacToFind}) async {
+  ///
+  Future<BleStatusCode> _tryInitialize({required List<int> sigId}) async {
     // Starting device
     if (!isInitialized) {
       BleLogger.log('Initializing device');
@@ -67,7 +76,7 @@ abstract class ReactiveBle {
     }
 
     if (_bleDevice == null) {
-      _bleDevice = await findDevice(deviceMacToFind);
+      _bleDevice = await findDevice(sigId);
       if (_bleDevice == null) {
         if (scanner.currentState == ScannerState.bluetoothOffFailure) {
           BleLogger.log('Failed to find devices: Bluetooth is off');
@@ -90,9 +99,8 @@ abstract class ReactiveBle {
 
   ///
   /// Find the requested device
-  /// TODO find using the serviceUuid (since it is more general)
   ///
-  Future<DiscoveredDevice?> findDevice(String deviceMacToFind) async {
+  Future<DiscoveredDevice?> findDevice(List<int> sigId) async {
     BleLogger.log('Finding devices');
     // Start the scanning if necessary
     if (scanner.currentState != ScannerState.devicesFound) {
@@ -103,7 +111,9 @@ abstract class ReactiveBle {
 
     if (scanner.currentState != ScannerState.devicesFound) return null;
 
-    final index = scanner.devices.indexWhere((e) => e.id == deviceMacToFind);
+    final index = scanner.devices
+        .indexWhere((e) => _startWith(e.manufacturerData, sigId));
+
     if (index < 0) return null;
 
     // Cleaning the scanner

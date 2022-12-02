@@ -48,7 +48,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     setState(() {
       _writeOutput = response.isEmpty
           ? 'Received empty data'
-          : 'Response:\n${response.toAscii().join('\n')}';
+          : 'Response:\n\n${response.toAscii().join('\n')}';
       return;
     });
   }
