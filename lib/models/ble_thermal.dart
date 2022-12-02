@@ -12,6 +12,8 @@ import '/models/ble_thermal_response.dart';
 enum BleThermalStatusCode {
   success,
   couldNotInitializeDevice,
+  bluetoothOff,
+  locationPermissionNotGranted,
   couldNotScan,
   couldNotFindDevice,
   couldNotFindServices,
@@ -26,6 +28,11 @@ enum BleThermalStatusCode {
 String errorCodeToString(BleThermalStatusCode errorCode) {
   if (errorCode == BleThermalStatusCode.couldNotInitializeDevice) {
     return 'Could not initialize the device';
+  } else if (errorCode == BleThermalStatusCode.bluetoothOff) {
+    return 'The bluetooth is off. Please turn it on';
+  } else if (errorCode == BleThermalStatusCode.locationPermissionNotGranted) {
+    return 'The location permission must be granted to the application to '
+        'use bluetooth device';
   } else if (errorCode == BleThermalStatusCode.couldNotScan) {
     return 'Could not scan for bluetooth devices.\n'
         'Please make sure bluetooth is activated and Location '
@@ -77,9 +84,11 @@ class BleThermal {
       result = await _tryInitialize();
       if (result == BleThermalStatusCode.success) return result;
 
-      // If scan failed, it means rights are not granted, there is no point
-      // retrying. So we return now.
-      if (result == BleThermalStatusCode.couldNotScan) return result;
+      // If proper rights are not granted, there is no point retrying
+      if (result == BleThermalStatusCode.bluetoothOff ||
+          result == BleThermalStatusCode.locationPermissionNotGranted) {
+        return result;
+      }
     }
 
     // If we get there, the transmission failed
@@ -112,8 +121,14 @@ class BleThermal {
     if (_bleDevice == null) {
       _bleDevice = await _findDevice();
       if (_bleDevice == null) {
-        if (!scanner.isScanning) return BleThermalStatusCode.couldNotScan;
-        return BleThermalStatusCode.couldNotFindDevice;
+        if (scanner.currentState == ScannerState.bluetoothOffFailure) {
+          return BleThermalStatusCode.bluetoothOff;
+        } else if (scanner.currentState ==
+            ScannerState.locationPermissionNotGranted) {
+          return BleThermalStatusCode.locationPermissionNotGranted;
+        } else {
+          return BleThermalStatusCode.couldNotFindDevice;
+        }
       }
     }
 

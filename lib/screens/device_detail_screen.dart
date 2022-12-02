@@ -31,11 +31,11 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     final status = await _bleThermal.tryInitialize();
 
     if (status != BleThermalStatusCode.success) {
-      _showErrorCode(status, extraMessage: 'retrying in 10 seconds');
-      await Future.delayed(const Duration(seconds: 10));
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _isBleReady = _connectBleThermal();
-      });
+        _showErrorMessage(status, extraMessage: 'retrying in 10 seconds');
+        await Future.delayed(const Duration(seconds: 10));
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _isBleReady = _connectBleThermal();
+        });
     }
 
     setState(() {
@@ -66,7 +66,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     });
   }
 
-  void _showErrorCode(BleThermalStatusCode errorCode, {String? extraMessage}) {
+  void _showErrorMessage(BleThermalStatusCode errorCode,
+      {String? extraMessage}) {
     String errorMessage = errorCodeToString(errorCode);
     if (extraMessage != null) errorMessage += ', $extraMessage';
 
@@ -87,7 +88,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
     final status = await _bleThermal.transmit(command, onResponse: onResponse);
     if (status != BleThermalStatusCode.success) {
-      _showErrorCode(status);
+      _showErrorMessage(status);
     }
 
     setState(() => _isTransmitting = false);

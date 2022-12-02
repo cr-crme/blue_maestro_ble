@@ -5,10 +5,19 @@ import 'package:meta/meta.dart';
 
 import 'reactive_state.dart';
 
+enum ScannerState {
+  idle,
+  scanning,
+  devicesFound,
+  locationPermissionNotGranted,
+  bluetoothOffFailure,
+  unknownFailure,
+}
+
 class BleScanner implements ReactiveState<BleScannerState> {
   BleScanner(this._ble);
 
-  bool isScanning = false;
+  ScannerState currentState = ScannerState.idle;
   final FlutterReactiveBle _ble;
   final StreamController<BleScannerState> _stateStreamController =
       StreamController();
@@ -21,7 +30,7 @@ class BleScanner implements ReactiveState<BleScannerState> {
   void startScan(List<Uuid> serviceIds) {
     _devices.clear();
     _subscription?.cancel();
-    isScanning = true;
+    currentState = ScannerState.scanning;
 
     _subscription =
         _ble.scanForDevices(withServices: serviceIds).listen((device) {
@@ -33,7 +42,17 @@ class BleScanner implements ReactiveState<BleScannerState> {
       }
       _pushState();
     })
-          ..onError((Object e, StackTrace s) => stopScan());
+          ..onError((e, StackTrace s) {
+            if (e.message.message == 'Bluetooth disabled (code 1)') {
+              currentState = ScannerState.bluetoothOffFailure;
+            } else if (e.message.message ==
+                'Location Permission missing (code 3)') {
+              currentState = ScannerState.locationPermissionNotGranted;
+            } else {
+              currentState = ScannerState.unknownFailure;
+            }
+            return stopScan();
+          });
     _pushState();
   }
 
@@ -47,7 +66,6 @@ class BleScanner implements ReactiveState<BleScannerState> {
   }
 
   Future<void> stopScan() async {
-    isScanning = false;
     await _subscription?.cancel();
     _subscription = null;
     _pushState();
