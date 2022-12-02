@@ -118,11 +118,15 @@ class BleThermal {
       _bleDevice = await _findDevice();
       if (_bleDevice == null) {
         if (scanner.currentState == ScannerState.bluetoothOffFailure) {
+          BleLogger.log('Failed to find devices: Bluetooth is off');
           return BleThermalStatusCode.bluetoothOff;
         } else if (scanner.currentState ==
             ScannerState.locationPermissionNotGranted) {
+          BleLogger.log(
+              'Failed to find devices: location permission is not granted to the app');
           return BleThermalStatusCode.locationPermissionNotGranted;
         } else {
+          BleLogger.log('Failed to find devices');
           return BleThermalStatusCode.couldNotFindDevice;
         }
       }
@@ -277,6 +281,7 @@ class BleThermal {
     try {
       return await ble.discoverServices(_bleDevice!.id);
     } on Exception {
+      BleLogger.log('Failed to find services');
       return null;
     }
   }

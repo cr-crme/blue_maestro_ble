@@ -50,20 +50,21 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     setState(() {
       _writeOutput = response.isEmpty
           ? 'Received empty data'
-          : 'Response:\n${response.toAscii().map((e) => e)}';
+          : 'Response:\n${response.toAscii().join('\n')}';
       return;
     });
   }
 
-  void _handleLogallResponse(BleThermalResponse response) {
+  void _handleLogAllResponse(BleThermalResponse response) {
     final measurements = response.asMeasurements();
     if (measurements == null) return;
 
     setState(() {
       _writeOutput =
-          'Temperature = ${measurements.temperature.map((e) => e.toStringAsFixed(1))}.\n\n'
-          'Humidity = ${measurements.humidity.map((e) => e.toStringAsFixed(1))}\n\n'
-          'Atmospheric pressure = ${measurements.atmosphericPressure.map((e) => e.toStringAsFixed(2))}';
+          'Number of measurements = ${measurements.temperatureNumberMeasurements}\n\n'
+          'Temperature (${measurements.temperatureUnits}) =\n${measurements.temperature.map((e) => e.toStringAsFixed(1)).toList()}\n\n'
+          'Humidity (${measurements.humidityUnits}) =\n${measurements.humidity.map((e) => e.toStringAsFixed(1)).toList()}\n\n'
+          'Atmospheric pressure (${measurements.atmosphericPressureUnits}) =\n${measurements.atmosphericPressure.map((e) => e.toStringAsFixed(2)).toList()}';
     });
   }
 
@@ -172,7 +173,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () =>
-                    _transmit('*logall', onResponse: _handleLogallResponse),
+                    _transmit('*logall', onResponse: _handleLogAllResponse),
                 child: const Text('Get sensor logs'),
               ),
               const SizedBox(height: 20),

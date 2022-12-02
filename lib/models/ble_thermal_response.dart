@@ -50,15 +50,19 @@ class BleThermalSensorMeasurements {
   List<double> get _conversionFactors =>
       [temperatureFromInt, humidityFromInt, atmosphericPressureFromInt];
 
+  late final int temperatureNumberMeasurements;
+  late final int humidityNumberMeasurements;
+  late final int atmosphericPressureNumberMeasurements;
+
   BleThermalSensorMeasurements(List<List<int>> entries) {
     ///
     /// The '*logall' command, contrary to all other responses, is not in ASCII.
-    /// It is made from a first header of 15 bytes. The first 2 are for
+    /// It is made from a header of 15 bytes. The first 2 are for
     /// the number of temperature measures, the next 2 are for the number
     /// humidity measures, the next 2 are for the number of atmospheric
-    /// pressure. I could not figure out the remaining 9 bytes, but I suspect
-    /// the last few are timestamp.
-    /// The next responses are the sensor measurements made of 20 bytes,
+    /// pressure measures. I could not figure out the remaining 9 bytes. Yet
+    /// they seem to be constant (0,2,1,0,0,0,0,0,58).
+    /// The next responses are the sensor measurements made from 20 bytes,
     /// corresponding to 10 big endian int16 measurements. After the last
     /// measurement two bytes are sent (0x2C 0x2C) and the remmaining bytes
     /// are 0 padded. Then the next sensor is sent.
@@ -75,6 +79,9 @@ class BleThermalSensorMeasurements {
     // Number of measurements per sensor
     final List<int> numberMeasurements =
         _intListToInt16(header.getRange(0, 6).toList());
+    temperatureNumberMeasurements = numberMeasurements[0];
+    humidityNumberMeasurements = numberMeasurements[1];
+    atmosphericPressureNumberMeasurements = numberMeasurements[2];
 
     // For each sensor
     var runningCountFirst = 1; // First sensor is on the 2nd row
@@ -93,6 +100,9 @@ class BleThermalSensorMeasurements {
       throw const NotEnoughDataException();
     } else if (entries.length > lastExpectedRow) {
       throw const TooManyDataException();
+    }
+    for (var i = 1; i < entries.length; i++) {
+      if (entries[i].length != 20) throw const NotCompatibleDataException();
     }
 
     // Parse the results into measurements
