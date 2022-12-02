@@ -22,24 +22,25 @@ class BleScanner implements ReactiveState<BleScannerState> {
   final StreamController<BleScannerState> _stateStreamController =
       StreamController();
 
-  final _devices = <DiscoveredDevice>[];
+  final devices = <DiscoveredDevice>[];
 
   @override
   Stream<BleScannerState> get state => _stateStreamController.stream;
 
   void startScan(List<Uuid> serviceIds) {
-    _devices.clear();
+    devices.clear();
     _subscription?.cancel();
     currentState = ScannerState.scanning;
 
     _subscription =
         _ble.scanForDevices(withServices: serviceIds).listen((device) {
-      final knownDeviceIndex = _devices.indexWhere((d) => d.id == device.id);
+      final knownDeviceIndex = devices.indexWhere((d) => d.id == device.id);
       if (knownDeviceIndex >= 0) {
-        _devices[knownDeviceIndex] = device;
+        devices[knownDeviceIndex] = device;
       } else {
-        _devices.add(device);
+        devices.add(device);
       }
+      currentState = ScannerState.devicesFound;
       _pushState();
     })
           ..onError((e, StackTrace s) {
@@ -59,7 +60,7 @@ class BleScanner implements ReactiveState<BleScannerState> {
   void _pushState() {
     _stateStreamController.add(
       BleScannerState(
-        discoveredDevices: _devices,
+        discoveredDevices: devices,
         scanIsInProgress: _subscription != null,
       ),
     );

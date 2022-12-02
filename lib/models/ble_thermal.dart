@@ -63,8 +63,6 @@ class BleThermal {
   late final FlutterReactiveBle _ble;
   late final BleScanner scanner;
   late final BleDeviceConnector connector;
-  late final StreamSubscription<BleScannerState> _stateStream;
-  List<DiscoveredDevice> _discoveredDevices = [];
   Map<String, QualifiedCharacteristic>? _characteristics;
   DiscoveredDevice? _bleDevice;
 
@@ -110,8 +108,6 @@ class BleThermal {
       }
       isInitialized = true;
       scanner = BleScanner(_ble);
-      _stateStream = scanner.state
-          .listen((event) => _discoveredDevices = event.discoveredDevices);
       connector = BleDeviceConnector(_ble);
     }
 
@@ -228,7 +224,11 @@ class BleThermal {
   Future<DiscoveredDevice?> _findDevice() async {
     BleLogger.log('Finding devices');
     // Start the scanning if necessary
-    if (!scanner.isScanning) scanner.startScan([]);
+    if (scanner.currentState != ScannerState.devicesFound) {
+      scanner.startScan([]);
+      // Give the scanner a little bit of time
+      await Future.delayed(const Duration(seconds: 1));
+    }
 
     // TODO find using the serviceUuid (since it is more general)
     // scanner.connectToAdvertisingDevice(
@@ -236,17 +236,16 @@ class BleThermal {
     //         withServices: [Uuid.parse(ThermalDevice.mainServiceUuid)],
     //         prescanDuration: const Duration(seconds: 10));
 
-    if (_discoveredDevices.isEmpty) return null;
+    if (scanner.currentState != ScannerState.devicesFound) return null;
 
     final index =
-        _discoveredDevices.indexWhere((e) => e.id == ThermalDevice.deviceId);
+        scanner.devices.indexWhere((e) => e.id == ThermalDevice.deviceId);
     if (index < 0) return null;
 
     // Cleaning the scanner
-    _stateStream.cancel();
     scanner.stopScan();
 
-    return _discoveredDevices[index];
+    return scanner.devices[index];
   }
 
   Future<List<DiscoveredService>?> _findServices(
