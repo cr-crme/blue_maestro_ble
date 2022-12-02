@@ -31,11 +31,11 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     final status = await _bleThermal.tryInitialize();
 
     if (status != BleThermalStatusCode.success) {
-        _showErrorMessage(status, extraMessage: 'retrying in 10 seconds');
-        await Future.delayed(const Duration(seconds: 10));
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _isBleReady = _connectBleThermal();
-        });
+      _showErrorMessage(status, extraMessage: 'retrying in 10 seconds');
+      await Future.delayed(const Duration(seconds: 10));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isBleReady = _connectBleThermal();
+      });
     }
 
     setState(() {
@@ -50,7 +50,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     setState(() {
       _writeOutput = response.isEmpty
           ? 'Received empty data'
-          : 'Response:\n${response.toAscii().map((e) => '$e\n')}';
+          : 'Response:\n${response.toAscii().map((e) => e)}';
       return;
     });
   }
@@ -60,9 +60,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     if (measurements == null) return;
 
     setState(() {
-      _writeOutput = 'Temperature = ${measurements.temperature}.\n\n'
-          'Humidity = ${measurements.humidity}\n\n'
-          'Atmospheric pressure = ${measurements.atmosphericPressure}';
+      _writeOutput =
+          'Temperature = ${measurements.temperature.map((e) => e.toStringAsFixed(1))}.\n\n'
+          'Humidity = ${measurements.humidity.map((e) => e.toStringAsFixed(1))}\n\n'
+          'Atmospheric pressure = ${measurements.atmosphericPressure.map((e) => e.toStringAsFixed(2))}';
     });
   }
 

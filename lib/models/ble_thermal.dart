@@ -134,6 +134,7 @@ class BleThermal {
     _characteristics = await _findCharacteristics(services);
     await _ble.requestMtu(deviceId: _bleDevice!.id, mtu: 64);
 
+    BleLogger.log('Device is ready');
     return BleThermalStatusCode.success;
   }
 
@@ -141,22 +142,36 @@ class BleThermal {
 
   Future<void> connect(BleDeviceConnector connector) async {
     BleLogger.log('Connecting');
-    if (_bleDevice != null) await connector.connect(_bleDevice!.id);
+    if (_bleDevice == null) return;
+
+    await connector.connect(_bleDevice!.id);
+    await Future.delayed(const Duration(milliseconds: 1000));
   }
 
   Future<void> disconnect(BleDeviceConnector connector) async {
     BleLogger.log('Disconnecting');
-    if (_bleDevice != null) connector.disconnect(_bleDevice!.id);
+    if (_bleDevice == null) return;
+
+    connector.disconnect(_bleDevice!.id);
+    await Future.delayed(const Duration(milliseconds: 1000));
   }
 
-  Future<BleThermalStatusCode> transmit(String command,
-      {maximumRetries = 3,
-      retryTime = const Duration(seconds: 5),
-      required Function(BleThermalResponse) onResponse}) async {
+  Future<BleThermalStatusCode> transmit(
+    String command, {
+    int maximumRetries = 3,
+    Duration retryTime = const Duration(seconds: 5),
+    required Function(BleThermalResponse) onResponse,
+  }) async {
     // Sanity check
     if (_characteristics == null) return BleThermalStatusCode.couldNotTransmit;
-    BleThermalStatusCode result;
+    BleThermalStatusCode result = BleThermalStatusCode.success;
     _transmitResponse.clear();
+
+    try {
+      await connect(connector);
+    } on Exception {
+      return BleThermalStatusCode.couldNotConnect;
+    }
 
     // Register to the response
     // Prepare a listener to receive the response
@@ -167,8 +182,14 @@ class BleThermal {
       // Leave some time before retrying
       if (retry != 0) {
         BleLogger.log('Transmission failed, retrying '
-            '${maximumRetries - retry} times (in $retryTime seconds)');
+            '${maximumRetries - retry} times (in ${retryTime.inSeconds} seconds)');
         await Future.delayed(retryTime);
+        try {
+          await disconnect(connector);
+          await connect(connector);
+        } on Exception {
+          return BleThermalStatusCode.couldNotConnect;
+        }
       }
 
       result = await _transmit(command);
@@ -184,20 +205,13 @@ class BleThermal {
   }
 
   Future<BleThermalStatusCode> _transmit(String command) async {
-    // Initiate connexion to BLE
-    try {
-      await connect(connector);
-    } on Exception {
-      return BleThermalStatusCode.couldNotConnect;
-    }
-
     // Send the data
-    await Future.delayed(const Duration(milliseconds: 500));
     try {
       BleLogger.log('Transmitting request');
       await _ble.writeCharacteristicWithResponse(_characteristics!['tx']!,
           value: ascii.encode(command));
-    } on Exception {
+    } on Exception catch (e) {
+      BleLogger.log((e as dynamic).message.message);
       return BleThermalStatusCode.couldNotTransmit;
     }
 
@@ -207,6 +221,7 @@ class BleThermal {
   Future<BleThermalStatusCode> listenAdvertisement({
     String? command,
     required Function(BleThermalResponse) onResponse,
+    Function(String)? onError,
   }) async {
     try {
       BleLogger.log('Subscribing to characteristics');
@@ -214,10 +229,18 @@ class BleThermal {
         BleLogger.log('Receiving response');
         _transmitResponse.add(values);
         onResponse(_transmitResponse);
-      }).onError((Object e) => BleThermalStatusCode.responseError);
+      }).onError((e) {
+        // This error usually does not affect the actual subscription
+        BleLogger.log(e.message.message);
+        if (onError != null) onError(e.message.message);
+        return;
+      });
     } on Exception {
+      BleLogger.log('Could not subscribe');
       return BleThermalStatusCode.couldNotSubscribe;
     }
+
+    await Future.delayed(const Duration(milliseconds: 1000));
     return BleThermalStatusCode.success;
   }
 
