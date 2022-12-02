@@ -101,7 +101,7 @@ class BleThermalSensorMeasurements {
       final rows =
           _concatenate(entries.getRange(firstRow[i], firstRow[i + 1]).toList());
       final data =
-          _intListToInt16(rows.getRange(0, numberMeasurements[i] + 1).toList());
+          _intListToInt16(rows.getRange(0, numberMeasurements[i] * 2).toList());
       measurements.add(data.map((e) => e * _conversionFactors[i]).toList());
     }
     temperature = measurements[0];
