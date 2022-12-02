@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 
 class NotEnoughDataException implements Exception {
   const NotEnoughDataException();
@@ -19,6 +19,10 @@ class NotCompatibleDataException implements Exception {
       'Data are not compatible with BleThermalSensorMeasurements';
 }
 
+List<int> _concatenate(List<List<int>> toContatenate) {
+  return toContatenate.expand((e) => e).toList();
+}
+
 List<int> _intListToInt16(List<int> entries) {
   Uint8List byteList = Uint8List.fromList(entries);
 
@@ -31,11 +35,7 @@ List<int> _intListToInt16(List<int> entries) {
   return out;
 }
 
-List<int> _concatenate(List<List<int>> toContatenate) {
-  return toContatenate.expand((e) => e).toList();
-}
-
-class BleThermalSensorMeasurements {
+class BlueMaestroMeasurements {
   late final List<double> temperature;
   late final List<double> humidity;
   late final List<double> atmosphericPressure;
@@ -54,7 +54,7 @@ class BleThermalSensorMeasurements {
   late final int humidityNumberMeasurements;
   late final int atmosphericPressureNumberMeasurements;
 
-  BleThermalSensorMeasurements(List<List<int>> entries) {
+  BlueMaestroMeasurements(List<List<int>> entries) {
     ///
     /// The '*logall' command, contrary to all other responses, is not in ASCII.
     /// It is made from a header of 15 bytes. The first 2 are for
@@ -118,25 +118,4 @@ class BleThermalSensorMeasurements {
     humidity = measurements[1];
     atmosphericPressure = measurements[2];
   }
-}
-
-class BleThermalResponse {
-  final List<List<int>> rawResponse = [];
-
-  List<String> toAscii() {
-    return rawResponse.map((e) => String.fromCharCodes(e)).toList();
-  }
-
-  BleThermalSensorMeasurements? asMeasurements() {
-    try {
-      return BleThermalSensorMeasurements(rawResponse);
-    } on NotEnoughDataException {
-      return null;
-    }
-  }
-
-  void add(List<int> value) => rawResponse.add(value);
-  void clear() => rawResponse.clear();
-  bool get isEmpty => rawResponse.isEmpty;
-  bool get isNotEmpty => rawResponse.isNotEmpty;
 }

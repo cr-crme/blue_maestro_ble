@@ -1,20 +1,21 @@
 import 'dart:async';
 
-import 'package:bluetooth_flutter_test/helpers/ble_facade/ble_logger.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
-import '/helpers/ble_facade/ble.dart';
-import '/helpers/ble_facade/ble_status_code.dart';
-import '/helpers/constants.dart';
-import '/models/ble_thermal_response.dart';
+import 'blue_maestro_constants.dart';
+import 'blue_maestro_response.dart';
+import 'reactive_ble_facade/reactive_ble_facade.dart';
 
-class BleThermal extends Ble {
+export 'reactive_ble_facade/reactive_ble_facade.dart';
+export 'blue_maestro_response.dart';
+
+class BlueMaestroBle extends ReactiveBle {
   Map<String, QualifiedCharacteristic>? _characteristics;
 
-  BleThermal({this.mock = false});
+  BlueMaestroBle({this.mock = false});
 
   bool mock;
-  final _transmitResponse = BleThermalResponse();
+  final _transmitResponse = BlueMaestroResponse();
 
   Future<BleStatusCode> initialize({
     maximumRetries = 0,
@@ -23,7 +24,7 @@ class BleThermal extends Ble {
     final status = await super.tryInitialize(
       maximumRetries: maximumRetries,
       retryTime: retryTime,
-      deviceMacToFind: ThermalDevice.deviceMac,
+      deviceMacToFind: BlueMaestroConstants.deviceMac,
     );
     if (status != BleStatusCode.success) return status;
 
@@ -38,7 +39,7 @@ class BleThermal extends Ble {
     String command, {
     int maximumRetries = 3,
     Duration retryTime = const Duration(seconds: 5),
-    required dynamic Function(BleThermalResponse) onResponse,
+    required dynamic Function(BlueMaestroResponse) onResponse,
   }) async {
     // Sanity check
     if (_characteristics == null) return BleStatusCode.couldNotTransmit;
@@ -70,11 +71,11 @@ class BleThermal extends Ble {
     BleLogger.log('Finding characteristics');
     // Find the main service
     final service = services.firstWhere(
-        (e) => e.serviceId.toString() == ThermalDevice.mainServiceUuid);
-    final txCharacteristic = service.characteristics.firstWhere(
-        (e) => e.characteristicId.toString() == ThermalDevice.txServiceUuid);
-    final rxCharacteristic = service.characteristics.firstWhere(
-        (e) => e.characteristicId.toString() == ThermalDevice.rxServiceUuid);
+        (e) => e.serviceId.toString() == BlueMaestroConstants.mainServiceUuid);
+    final txCharacteristic = service.characteristics.firstWhere((e) =>
+        e.characteristicId.toString() == BlueMaestroConstants.txServiceUuid);
+    final rxCharacteristic = service.characteristics.firstWhere((e) =>
+        e.characteristicId.toString() == BlueMaestroConstants.rxServiceUuid);
 
     return {
       'tx': QualifiedCharacteristic(

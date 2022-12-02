@@ -7,7 +7,7 @@ import 'ble_scanner.dart';
 import 'ble_status_code.dart';
 import 'ble_logger.dart';
 
-abstract class Ble {
+abstract class ReactiveBle {
   bool isInitialized = false;
   late final FlutterReactiveBle _ble;
   late final BleScanner scanner;

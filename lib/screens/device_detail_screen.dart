@@ -1,10 +1,8 @@
 import 'dart:async';
 
-import 'package:bluetooth_flutter_test/helpers/ble_facade/ble_status_code.dart';
-import 'package:bluetooth_flutter_test/models/ble_thermal_response.dart';
 import 'package:flutter/material.dart';
 
-import '/models/ble_thermal.dart';
+import '/models/blue_maestro_ble/blue_maestro_ble.dart';
 
 class DeviceDetailScreen extends StatefulWidget {
   const DeviceDetailScreen({super.key});
@@ -17,7 +15,7 @@ class DeviceDetailScreen extends StatefulWidget {
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   String? _writeOutput;
-  final _bleThermal = BleThermal();
+  final _bleThermal = BlueMaestroBle();
   late Future<bool> _isBleReady;
   bool _isTransmitting = false;
 
@@ -46,7 +44,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return status == BleStatusCode.success;
   }
 
-  void _handleAsciiResponse(BleThermalResponse response) {
+  void _handleAsciiResponse(BlueMaestroResponse response) {
     setState(() {
       _writeOutput = response.isEmpty
           ? 'Received empty data'
@@ -55,7 +53,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     });
   }
 
-  void _handleLogAllResponse(BleThermalResponse response) {
+  void _handleLogAllResponse(BlueMaestroResponse response) {
     final measurements = response.asMeasurements();
     if (measurements == null) return;
 
@@ -81,7 +79,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Future<void> _transmit(String command,
-      {required Function(BleThermalResponse) onResponse}) async {
+      {required Function(BlueMaestroResponse) onResponse}) async {
     setState(() {
       _writeOutput = null;
       _isTransmitting = true;
@@ -97,7 +95,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Future<void> _transmitWithNumbers(String command, String title,
-      {required Function(BleThermalResponse) onResponse}) async {
+      {required Function(BlueMaestroResponse) onResponse}) async {
     var controller = TextEditingController();
     var alert = AlertDialog(
       title: Text(title),
