@@ -13,5 +13,5 @@ class ThermalDevice {
   static const String descriptor1 = '${bleHead}2aa6-$bleTail';
   static const String descriptor2 = '${bleHead}2aa6-$bleTail';
   
-  static const String deviceId = 'F0:2D:A7:39:B8:7D';
+  static const String deviceMac = 'F0:2D:A7:39:B8:7D';
 }

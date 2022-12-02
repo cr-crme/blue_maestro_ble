@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:meta/meta.dart';
 
-import 'reactive_state.dart';
-
 enum ScannerState {
   idle,
   scanning,
@@ -14,7 +12,7 @@ enum ScannerState {
   unknownFailure,
 }
 
-class BleScanner implements ReactiveState<BleScannerState> {
+class BleScanner {
   BleScanner(this._ble);
 
   ScannerState currentState = ScannerState.idle;
@@ -23,9 +21,6 @@ class BleScanner implements ReactiveState<BleScannerState> {
       StreamController();
 
   final devices = <DiscoveredDevice>[];
-
-  @override
-  Stream<BleScannerState> get state => _stateStreamController.stream;
 
   void startScan(List<Uuid> serviceIds) {
     devices.clear();

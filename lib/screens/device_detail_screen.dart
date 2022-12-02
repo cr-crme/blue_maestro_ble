@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluetooth_flutter_test/helpers/ble_facade/ble_status_code.dart';
 import 'package:bluetooth_flutter_test/models/ble_thermal_response.dart';
 import 'package:flutter/material.dart';
 
@@ -28,9 +29,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Future<bool> _connectBleThermal() async {
-    final status = await _bleThermal.tryInitialize();
+    final status = await _bleThermal.initialize();
 
-    if (status != BleThermalStatusCode.success) {
+    if (status != BleStatusCode.success) {
       _showErrorMessage(status, extraMessage: 'retrying in 10 seconds');
       await Future.delayed(const Duration(seconds: 10));
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -40,10 +41,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
     setState(() {
       _isTransmitting = false;
-      _writeOutput =
-          status == BleThermalStatusCode.success ? 'Connected' : 'Failed';
+      _writeOutput = status == BleStatusCode.success ? 'Connected' : 'Failed';
     });
-    return status == BleThermalStatusCode.success;
+    return status == BleStatusCode.success;
   }
 
   void _handleAsciiResponse(BleThermalResponse response) {
@@ -68,8 +68,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     });
   }
 
-  void _showErrorMessage(BleThermalStatusCode errorCode,
-      {String? extraMessage}) {
+  void _showErrorMessage(BleStatusCode errorCode, {String? extraMessage}) {
     String errorMessage = errorCodeToString(errorCode);
     if (extraMessage != null) errorMessage += ', $extraMessage';
 
@@ -88,8 +87,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       _isTransmitting = true;
     });
 
-    final status = await _bleThermal.transmit(command, onResponse: onResponse);
-    if (status != BleThermalStatusCode.success) {
+    final status =
+        await _bleThermal.transmitWithResponse(command, onResponse: onResponse);
+    if (status != BleStatusCode.success) {
       _showErrorMessage(status);
     }
 
@@ -148,7 +148,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   Scaffold _buildMainScaffold() {
     return Scaffold(
-      appBar: AppBar(title: Text(_bleThermal.name)),
+      appBar: AppBar(title: Text(_bleThermal.deviceName)),
       body: SingleChildScrollView(
         child: Center(
           child: Column(
