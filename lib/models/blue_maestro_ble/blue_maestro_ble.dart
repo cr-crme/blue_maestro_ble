@@ -14,9 +14,6 @@ export 'reactive_ble_facade/reactive_ble_facade.dart';
 class BlueMaestroBle extends ReactiveBle {
   Map<String, QualifiedCharacteristic>? _characteristics;
 
-  BlueMaestroBle({this.mock = false});
-
-  bool mock;
   final _transmitResponse = BlueMaestroResponse();
 
   Future<BleStatusCode> initialize({

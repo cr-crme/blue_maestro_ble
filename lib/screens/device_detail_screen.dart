@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '/models/blue_maestro_ble/blue_maestro_ble.dart';
+import '/models/blue_maestro_ble/blue_maestro_mock.dart';
 
 class DeviceDetailScreen extends StatefulWidget {
-  const DeviceDetailScreen({super.key});
+  const DeviceDetailScreen({super.key, this.useMock = false});
 
+  final bool useMock;
   static const route = '/device-detail-screen';
 
   @override
@@ -15,7 +16,8 @@ class DeviceDetailScreen extends StatefulWidget {
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   String? _writeOutput;
-  final _blueMaestro = BlueMaestroBle();
+  late final _blueMaestro =
+      widget.useMock ? BlueMaestroMock() : BlueMaestroBle();
   late Future<bool> _isBlueMaestroReady;
   bool _isTransmitting = false;
 

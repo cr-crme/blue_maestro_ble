@@ -90,6 +90,10 @@ class BlueMaestroMeasurements {
       firstRow.add(runningCountFirst);
       // There are 10 measurements per row
       runningCountFirst += (numberMeasurement / 10).ceil();
+
+      // If the final marker (0x2C2C) is on the very first value of next row,
+      // artifically add one row to the numberMeasurement counter
+      if (numberMeasurement % 10 == 0) runningCountFirst += 1;
     }
     firstRow.add(runningCountFirst);
     final lastExpectedRow = runningCountFirst;

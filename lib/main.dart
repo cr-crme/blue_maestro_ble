@@ -13,7 +13,9 @@ void main() {
     theme: ThemeData(primarySwatch: _themeColor),
     initialRoute: DeviceDetailScreen.route,
     routes: {
-      DeviceDetailScreen.route: (context) => const DeviceDetailScreen(),
+      DeviceDetailScreen.route: (context) => const DeviceDetailScreen(
+            useMock: true,
+          ),
     },
   ));
 }
