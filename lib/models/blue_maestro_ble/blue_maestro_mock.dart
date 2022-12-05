@@ -13,8 +13,11 @@ export 'blue_maestro_ble.dart';
 
 class BlueMaestroMock implements BlueMaestroBle {
   Map<String, QualifiedCharacteristic>? _characteristics;
+  final int numberMeasurements;
 
   final _transmitResponse = BlueMaestroResponse();
+
+  BlueMaestroMock({required this.numberMeasurements});
 
   @override
   Future<BleStatusCode> initialize({

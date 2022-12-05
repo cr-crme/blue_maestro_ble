@@ -1,4 +1,4 @@
-package com.example.bluetooth_flutter_test
+package com.example.blue_maestro
 
 import io.flutter.embedding.android.FlutterActivity
 

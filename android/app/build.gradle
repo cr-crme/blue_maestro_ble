@@ -46,7 +46,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.bluetooth_flutter_test"
+        applicationId "com.example.blue_maestro"
         minSdkVersion 21
         targetSdkVersion 31
         versionCode flutterVersionCode.toInteger()

@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.bluetooth_flutter_test">
+    package="com.example.blue_maestro">
 
     <!-- required for API 18 - 30 -->
     <uses-permission
@@ -24,10 +24,10 @@
             android:usesPermissionFlags="neverForLocation" />
 
     <application
-        android:label="bluetooth_flutter_test"
+        android:label="blue_maestro"
         android:icon="@mipmap/ic_launcher">
         <activity
-            android:name="com.example.bluetooth_flutter_test.MainActivity"
+            android:name="com.example.blue_maestro.MainActivity"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density"

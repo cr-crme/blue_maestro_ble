@@ -16,8 +16,9 @@ class DeviceDetailScreen extends StatefulWidget {
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   String? _writeOutput;
-  late final _blueMaestro =
-      widget.useMock ? BlueMaestroMock() : BlueMaestroBle();
+  late final _blueMaestro = widget.useMock
+      ? BlueMaestroMock(numberMeasurements: 10)
+      : BlueMaestroBle();
   late Future<bool> _isBlueMaestroReady;
   bool _isTransmitting = false;
 

@@ -14,7 +14,7 @@ void main() {
     initialRoute: DeviceDetailScreen.route,
     routes: {
       DeviceDetailScreen.route: (context) => const DeviceDetailScreen(
-            useMock: true,
+            useMock: false,
           ),
     },
   ));
