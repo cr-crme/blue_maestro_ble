@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '/screens/device_detail_screen.dart';
+import 'screens/device_detail_screen.dart';
 
 const _themeColor = Colors.lightGreen;
 

@@ -1,5 +1,5 @@
-name: blue_maestro
-description: Test of the thermal BLE device
+name: blue_maestro_ble
+description: Interface of the Blue Maestro BLE device
 
 publish_to: 'none'
 

@@ -46,7 +46,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.blue_maestro"
+        applicationId "com.example.blue_maestro_ble"
         minSdkVersion 21
         targetSdkVersion 31
         versionCode flutterVersionCode.toInteger()

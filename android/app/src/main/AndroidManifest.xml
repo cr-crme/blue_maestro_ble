@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.blue_maestro">
+    package="com.example.blue_maestro_ble">
 
     <!-- required for API 18 - 30 -->
     <uses-permission
@@ -24,10 +24,10 @@
             android:usesPermissionFlags="neverForLocation" />
 
     <application
-        android:label="blue_maestro"
+        android:label="blue_maestro_ble"
         android:icon="@mipmap/ic_launcher">
         <activity
-            android:name="com.example.blue_maestro.MainActivity"
+            android:name="com.example.blue_maestro_ble.MainActivity"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density"

@@ -1,4 +1,4 @@
-# Blue Maestro Flutter
+# Blue Maestro BLE Flutter
 This is an flutter specialization of the `flutter_reactive_ble` package. 
 It is still incomplete in the sense that it does not implement all the command nor that it robusts. 
 It should therefore be treated as a quick and dirty implementation that gets the job done. 
