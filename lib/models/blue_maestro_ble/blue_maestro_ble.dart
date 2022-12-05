@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
+import 'blue_maestro_command.dart';
 import 'blue_maestro_constants.dart';
 import 'blue_maestro_response.dart';
 import 'reactive_ble_facade/reactive_ble_facade.dart';
 
-export 'reactive_ble_facade/reactive_ble_facade.dart';
+export 'blue_maestro_command.dart';
 export 'blue_maestro_response.dart';
+export 'reactive_ble_facade/reactive_ble_facade.dart';
 
 class BlueMaestroBle extends ReactiveBle {
   Map<String, QualifiedCharacteristic>? _characteristics;
@@ -36,7 +38,7 @@ class BlueMaestroBle extends ReactiveBle {
   }
 
   Future<BleStatusCode> transmitWithResponse(
-    String command, {
+    BlueMaestroCommand command, {
     int maximumRetries = 3,
     Duration retryTime = const Duration(seconds: 5),
     required dynamic Function(BlueMaestroResponse) onResponse,

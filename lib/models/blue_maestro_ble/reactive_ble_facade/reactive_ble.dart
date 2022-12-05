@@ -2,10 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
+import 'ble_command.dart';
 import 'ble_device_connector.dart';
+import 'ble_logger.dart';
 import 'ble_scanner.dart';
 import 'ble_status_code.dart';
-import 'ble_logger.dart';
 
 bool _startWith(List<int> data, List<int> pattern) {
   for (int index = 0; index < pattern.length; index += 1) {
@@ -152,7 +153,7 @@ abstract class ReactiveBle {
   }
 
   Future<BleStatusCode> transmit(
-    String command,
+    BleCommand command,
     QualifiedCharacteristic characteristic, {
     int maximumRetries = 3,
     Duration retryTime = const Duration(seconds: 5),
@@ -175,7 +176,7 @@ abstract class ReactiveBle {
       try {
         BleLogger.log('Transmitting request');
         await _ble.writeCharacteristicWithResponse(characteristic,
-            value: ascii.encode(command));
+            value: ascii.encode(command.message));
         BleLogger.log('Transmission was successful');
         return BleStatusCode.success;
       } on Exception catch (e) {

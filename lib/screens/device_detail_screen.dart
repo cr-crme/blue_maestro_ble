@@ -15,25 +15,25 @@ class DeviceDetailScreen extends StatefulWidget {
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   String? _writeOutput;
-  final _bleThermal = BlueMaestroBle();
-  late Future<bool> _isBleReady;
+  final _blueMaestro = BlueMaestroBle();
+  late Future<bool> _isBlueMaestroReady;
   bool _isTransmitting = false;
 
   @override
   void initState() {
     super.initState();
 
-    _isBleReady = _connectBleThermal();
+    _isBlueMaestroReady = _connectBlueMaestro();
   }
 
-  Future<bool> _connectBleThermal() async {
-    final status = await _bleThermal.initialize();
+  Future<bool> _connectBlueMaestro() async {
+    final status = await _blueMaestro.initialize();
 
     if (status != BleStatusCode.success) {
       _showErrorMessage(status, extraMessage: 'retrying in 10 seconds');
       await Future.delayed(const Duration(seconds: 10));
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _isBleReady = _connectBleThermal();
+        _isBlueMaestroReady = _connectBlueMaestro();
       });
     }
 
@@ -78,15 +78,15 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
-  Future<void> _transmit(String command,
+  Future<void> _transmit(BlueMaestroCommand command,
       {required Function(BlueMaestroResponse) onResponse}) async {
     setState(() {
       _writeOutput = null;
       _isTransmitting = true;
     });
 
-    final status =
-        await _bleThermal.transmitWithResponse(command, onResponse: onResponse);
+    final status = await _blueMaestro.transmitWithResponse(command,
+        onResponse: onResponse);
     if (status != BleStatusCode.success) {
       _showErrorMessage(status);
     }
@@ -94,7 +94,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     setState(() => _isTransmitting = false);
   }
 
-  Future<void> _transmitWithNumbers(String command, String title,
+  Future<void> _transmitWithIntParameter(
+      BlueMaestroCommand Function(int) commandFactory, String title,
       {required Function(BlueMaestroResponse) onResponse}) async {
     var controller = TextEditingController();
     var alert = AlertDialog(
@@ -117,24 +118,23 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       ),
     );
 
-    final answer = await showDialog<int?>(
+    final parameter = await showDialog<int?>(
       context: context,
       builder: (context) {
         return alert;
       },
     );
-    if (answer == null) return;
+    if (parameter == null) return;
 
-    final newCommand = '$command$answer';
-    _transmit(newCommand, onResponse: onResponse);
+    _transmit(commandFactory(parameter), onResponse: onResponse);
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-        future: _isBleReady,
-        builder: (context, isBleReady) {
-          if (isBleReady.hasData && isBleReady.data!) {
+        future: _isBlueMaestroReady,
+        builder: (context, isBlueMaestroReady) {
+          if (isBlueMaestroReady.hasData && isBlueMaestroReady.data!) {
             return _buildMainScaffold();
           } else {
             return Scaffold(
@@ -146,7 +146,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   Scaffold _buildMainScaffold() {
     return Scaffold(
-      appBar: AppBar(title: Text(_bleThermal.deviceName)),
+      appBar: AppBar(title: Text(_blueMaestro.deviceName)),
       body: SingleChildScrollView(
         child: Center(
           child: Column(
@@ -154,49 +154,44 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
             children: [
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () =>
-                    _transmit('*batt', onResponse: _handleAsciiResponse),
+                onPressed: () => _transmit(BlueMaestroCommand.batteryLevel(),
+                    onResponse: _handleAsciiResponse),
                 child: const Text('Battery level'),
               ),
               ElevatedButton(
-                onPressed: () =>
-                    _transmit('*info', onResponse: _handleAsciiResponse),
+                onPressed: () => _transmit(BlueMaestroCommand.information(),
+                    onResponse: _handleAsciiResponse),
                 child: const Text('Information'),
               ),
               ElevatedButton(
-                onPressed: () =>
-                    _transmit('*tell', onResponse: _handleAsciiResponse),
+                onPressed: () => _transmit(BlueMaestroCommand.telemetrics(),
+                    onResponse: _handleAsciiResponse),
                 child: const Text('Telemetrics'),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () =>
-                    _transmit('*logall', onResponse: _handleLogAllResponse),
+                onPressed: () => _transmit(BlueMaestroCommand.logAll(),
+                    onResponse: _handleLogAllResponse),
                 child: const Text('Get sensor logs'),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () => _transmitWithNumbers(
-                    '*lint', 'Time in seconds',
+                onPressed: () => _transmitWithIntParameter(
+                    BlueMaestroCommand.loggingInterval, 'Time in seconds',
                     onResponse: _handleAsciiResponse),
                 child: const Text('Set log intervals'),
               ),
               ElevatedButton(
-                onPressed: () => _transmitWithNumbers(
-                    '*sint', 'Time in seconds',
+                onPressed: () => _transmitWithIntParameter(
+                    BlueMaestroCommand.sensorInterval, 'Time in seconds',
                     onResponse: _handleAsciiResponse),
                 child: const Text('Set sensor intervals'),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () =>
-                    _transmit('*clr', onResponse: _handleAsciiResponse),
+                onPressed: () => _transmit(BlueMaestroCommand.clearLog(),
+                    onResponse: _handleAsciiResponse),
                 child: const Text('Clear log'),
-              ),
-              ElevatedButton(
-                onPressed: () =>
-                    _transmit('*dummy', onResponse: _handleAsciiResponse),
-                child: const Text('Dummy'),
               ),
               const SizedBox(height: 20),
               Text(
