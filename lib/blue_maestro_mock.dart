@@ -67,7 +67,7 @@ class BlueMaestroMock implements BlueMaestroBle {
     } else if (command.message.contains('*sint')) {
       onResponse(_generateSensorIntervalResponse(command.message.substring(5)));
     } else if (command.message == '*logall') {
-      onResponse(_generateMeasuresResponse(nbMeasures: 100));
+      onResponse(_generateMeasuresResponse(nbMeasures: numberMeasurements));
     } else if (command.message == '*clr') {
       onResponse(_generateClearLogResponse());
     } else {
@@ -140,18 +140,18 @@ class BlueMaestroMock implements BlueMaestroBle {
     response.rawResponse.add(
         [m[0], m[1], m[0], m[1], m[0], m[1]] + [0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-    // Fill the temperature response starting at 23.0 Celsius, varying pm 0.5
+    // Fill the temperature response starting at 25.0 Celsius, varying pm 0.5
     List<List<int>> measurements = [];
     measurements += _generateMeasurements(
-        nbMeasures: nbMeasures, startingValue: 230, variation: 5);
+        nbMeasures: nbMeasures, startingValue: 250, variability: 5);
 
     // Fill the humidity response starting at 33.0%, varying pm 0.5
     measurements += _generateMeasurements(
-        nbMeasures: nbMeasures, startingValue: 330, variation: 5);
+        nbMeasures: nbMeasures, startingValue: 330, variability: 5);
 
     // Fill the atmospheric pressure response starting at 101.25kPa, varying pm 0.1
     measurements += _generateMeasurements(
-        nbMeasures: nbMeasures, startingValue: 10125, variation: 10);
+        nbMeasures: nbMeasures, startingValue: 10125, variability: 10);
 
     for (final row in measurements) {
       response.rawResponse.add(row);
@@ -239,7 +239,7 @@ List<int> _intAsBytes(int value) {
 
 ///
 /// Fill the first 20 bytes by simulating measurements with a specified
-/// [startingValue] and plus or minus [variation] around that value at each
+/// [startingValue] and plus or minus [variability] around that value at each
 /// measurement.
 /// If get get to the 20th byte, start a new row. If it finishes before
 /// filling a row, print the number 0x2C2C, then pad with 0.
@@ -247,7 +247,7 @@ List<int> _intAsBytes(int value) {
 List<List<int>> _generateMeasurements({
   required int nbMeasures,
   required int startingValue,
-  required int variation,
+  required int variability,
 }) {
   final rand = Random();
 
@@ -257,7 +257,7 @@ List<List<int>> _generateMeasurements({
     List<int> row = [];
     for (var j = 0; j < 10; j++) {
       // Add or remove up to [variation] units
-      current += rand.nextInt(variation);
+      current += rand.nextInt(variability) - (variability / 2).floor();
 
       row += _intAsBytes(i < nbMeasures ~/ 10 || j < nbMeasures % 10
           ? current
