@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  blue_maestro_ble: ^0.1.0
+
 
 dependency_overrides:
   blue_maestro_ble:
