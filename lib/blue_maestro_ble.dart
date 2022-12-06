@@ -8,6 +8,7 @@ import 'blue_maestro_response.dart';
 import 'reactive_ble_facade/reactive_ble_facade.dart';
 
 export 'blue_maestro_command.dart';
+export 'blue_maestro_mock.dart';
 export 'blue_maestro_response.dart';
 export 'reactive_ble_facade/reactive_ble_facade.dart';
 

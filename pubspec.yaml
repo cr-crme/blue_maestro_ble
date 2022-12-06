@@ -3,7 +3,7 @@ description: Interface of the Blue Maestro BLE device
 
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 0.1.0
 
 environment:
   sdk: '>=2.18.4 <3.0.0'
@@ -12,11 +12,6 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_reactive_ble: ^5.0.2
-  intl: ^0.17.0
-  functional_data: ^1.0.0
-  meta: ^1.8.0
-
-  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:

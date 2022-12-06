@@ -9,8 +9,6 @@ import 'reactive_ble_facade/ble_command.dart';
 import 'reactive_ble_facade/ble_device_connector.dart';
 import 'reactive_ble_facade/ble_scanner.dart';
 
-export 'blue_maestro_ble.dart';
-
 class BlueMaestroMock implements BlueMaestroBle {
   Map<String, QualifiedCharacteristic>? _characteristics;
   final int numberMeasurements;
