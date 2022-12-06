@@ -1,8 +1,7 @@
 import 'dart:async';
 
+import 'package:blue_maestro_ble/blue_maestro_ble.dart';
 import 'package:flutter/material.dart';
-
-import '/models/blue_maestro_ble/blue_maestro_mock.dart';
 
 class DeviceDetailScreen extends StatefulWidget {
   const DeviceDetailScreen({super.key, this.useMock = false});
@@ -138,7 +137,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         future: _isBlueMaestroReady,
         builder: (context, isBlueMaestroReady) {
           if (isBlueMaestroReady.hasData && isBlueMaestroReady.data!) {
-            return _buildMainScaffold();
+            return _buildButtons();
           } else {
             return Scaffold(
                 appBar: AppBar(title: const Text('Searching for device')),
@@ -147,7 +146,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         });
   }
 
-  Scaffold _buildMainScaffold() {
+  Scaffold _buildButtons() {
     return Scaffold(
       appBar: AppBar(title: Text(_blueMaestro.deviceName)),
       body: SingleChildScrollView(

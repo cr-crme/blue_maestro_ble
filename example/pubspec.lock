@@ -8,6 +8,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.9.0"
+  blue_maestro_ble:
+    dependency: "direct main"
+    description:
+      path: ".."
+      relative: true
+    source: path
+    version: "0.1.0"
   boolean_selector:
     dependency: transitive
     description:
@@ -36,13 +43,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.16.0"
-  cupertino_icons:
-    dependency: "direct main"
-    description:
-      name: cupertino_icons
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "1.0.5"
   fake_async:
     dependency: transitive
     description:
@@ -70,7 +70,7 @@ packages:
     source: hosted
     version: "2.0.1"
   flutter_reactive_ble:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: flutter_reactive_ble
       url: "https://pub.dartlang.org"
@@ -82,19 +82,12 @@ packages:
     source: sdk
     version: "0.0.0"
   functional_data:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: functional_data
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.0.0"
-  intl:
-    dependency: "direct main"
-    description:
-      name: intl
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.17.0"
   lints:
     dependency: transitive
     description:
@@ -117,7 +110,7 @@ packages:
     source: hosted
     version: "0.1.5"
   meta:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: meta
       url: "https://pub.dartlang.org"
