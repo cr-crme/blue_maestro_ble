@@ -9,7 +9,7 @@ packages:
     source: hosted
     version: "2.9.0"
   blue_maestro_ble:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       path: ".."
       relative: true
