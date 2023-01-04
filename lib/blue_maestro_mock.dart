@@ -21,6 +21,8 @@ class BlueMaestroMock implements BlueMaestroBle {
   Future<BleStatusCode> initialize({
     maximumRetries = 0,
     retryTime = const Duration(seconds: 5),
+    Function? onDeviceFound,
+    Function? onServicesFound,
   }) async {
     _characteristics = {
       'tx': QualifiedCharacteristic(
@@ -33,6 +35,8 @@ class BlueMaestroMock implements BlueMaestroBle {
           deviceId: deviceId),
     };
     isInitialized = true;
+    if (onDeviceFound != null) onDeviceFound();
+    if (onServicesFound != null) onServicesFound();
     return BleStatusCode.success;
   }
 

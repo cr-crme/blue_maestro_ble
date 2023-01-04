@@ -20,6 +20,8 @@ class BlueMaestroBle extends ReactiveBle {
   Future<BleStatusCode> initialize({
     maximumRetries = 0,
     retryTime = const Duration(seconds: 5),
+    Function? onDeviceFound,
+    Function? onServicesFound,
   }) async {
     final status = await super.tryInitialize(
       maximumRetries: maximumRetries,
@@ -27,9 +29,11 @@ class BlueMaestroBle extends ReactiveBle {
       sigId: BlueMaestroConstants.sigId,
     );
     if (status != BleStatusCode.success) return status;
+    if (onDeviceFound != null) onDeviceFound();
 
     final services = await findServices();
     if (services == null) return BleStatusCode.couldNotFindServices;
+    if (onServicesFound != null) onServicesFound();
 
     _characteristics = _setCharacteristics(deviceId, services);
     return BleStatusCode.success;
