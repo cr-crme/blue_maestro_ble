@@ -9,6 +9,8 @@ import 'ble_scanner.dart';
 import 'ble_status_code.dart';
 
 bool _startWith(List<int> data, List<int> pattern) {
+  if (data.isEmpty) return false;
+
   for (int index = 0; index < pattern.length; index += 1) {
     if (data[index] != pattern[index]) {
       return false;
